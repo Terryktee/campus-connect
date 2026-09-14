@@ -1,2 +1,2 @@
-import { Channels } from '@/components/campus-app'
-export default function Page() { return <Channels /> }
+import { ApiChannels } from '@/components/public-api-pages'
+export default function Page() { return <ApiChannels /> }

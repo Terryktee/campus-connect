@@ -1,0 +1,6 @@
+'use client'
+import {useState} from 'react'
+import Link from 'next/link'
+import {Footer,Header} from '@/components/campus-app'
+import {channelOptions,eventTypes} from '@/lib/data'
+export default function Page(){const[sent,setSent]=useState(false);return <><Header/><main className="page"><div className="container form-card narrow"><span className="eyebrow">PUT IT ON THE CALENDAR</span><h1>Add an event</h1><p>Help students find useful things happening nearby.</p>{sent?<div className="success"><div className="success-mark">✓</div><h2>Event draft submitted.</h2><Link href="/events" className="button primary">View events</Link></div>:<form onSubmit={e=>{e.preventDefault();setSent(true)}}><label>Event title *<input required placeholder="e.g. Build night"/></label><div className="form-two"><label>Date *<input required type="date"/></label><label>Type *<select required>{eventTypes.map(x=><option key={x}>{x}</option>)}</select></label></div><label>Place or online link *<input required placeholder="Student Centre or https://..."/></label><label>Host channel *<select required>{channelOptions.map(x=><option key={x}>{x}</option>)}</select></label><label>Description *<textarea required rows={5} placeholder="Tell students what to expect..."/></label><button className="button primary">Add event <span>→</span></button></form>}</div></main><Footer/></>}

@@ -1,0 +1,5 @@
+import Link from 'next/link'
+import {Header,Footer,PostCard} from '@/components/campus-app'
+import {getChannel,posts,channels} from '@/lib/data'
+export function generateStaticParams(){return channels.map(c=>({slug:c.slug}))}
+export default async function Page({params}:{params:Promise<{slug:string}>}){const{slug}=await params;const channel=getChannel(slug);if(!channel)return <><Header/><main className="page"><div className="container narrow"><h1>Channel not found</h1><Link href="/channels" className="button primary">View channels</Link></div></main></>;const feed=posts.filter(p=>p.channel===channel.name||p.channel===channel.name);return <><Header/><main className="page"><div className="container page-intro"><span className="eyebrow">CAMPUS CHANNEL</span><h1>{channel.name}</h1><p>{channel.description} <b>{channel.members} followers.</b></p><button className="button primary">Follow channel <span>+</span></button></div><section className="container post-grid">{(feed.length?feed:posts.slice(0,2)).map(p=><PostCard key={p.id} post={p}/>)}</section></main><Footer/></>}

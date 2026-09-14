@@ -49,6 +49,7 @@ class Channel(models.Model):
     follower_count = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     approved_at = models.DateTimeField(null=True, blank=True)
+    claimed_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return self.name
@@ -155,7 +156,7 @@ class Follow(models.Model):
             models.CheckConstraint(
                 condition=(
                     (models.Q(channel__isnull=False) & models.Q(category__isnull=True) & models.Q(institution__isnull=True))
-                    | (models.Q(channel__isnull=True) & models.Q(category__isnull=False) & models.Q(institution__isnull=False))
+                    | (models.Q(channel__isnull=True) & models.Q(category__isnull=False))
                 ),
                 name="follow_has_one_valid_target",
             ),

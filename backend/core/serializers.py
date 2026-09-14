@@ -90,6 +90,53 @@ class PublicChannelSerializer(serializers.ModelSerializer):
         )
 
 
+class PublicChannelDetailSerializer(PublicChannelSerializer):
+    posts = serializers.SerializerMethodField()
+
+    class Meta(PublicChannelSerializer.Meta):
+        fields = PublicChannelSerializer.Meta.fields + ("posts",)
+
+    def get_posts(self, channel):
+        return PublicPostSerializer(
+            channel.post_set.filter(status=Post.Status.APPROVED).select_related(
+                "category", "institution", "channel"
+            ),
+            many=True,
+        ).data
+
+
+class FollowSerializer(serializers.Serializer):
+    follower_contact = serializers.CharField(max_length=255)
+    channel = serializers.CharField(required=False)
+    category = serializers.CharField(required=False)
+    institution = serializers.CharField(required=False, allow_null=True)
+
+    def validate_follower_contact(self, value):
+        return validate_submitter_contact(value)
+
+    def validate(self, attrs):
+        has_channel = bool(attrs.get("channel"))
+        has_category = bool(attrs.get("category"))
+        if has_channel == has_category:
+            raise serializers.ValidationError(
+                "Provide either a channel or a category target."
+            )
+        if has_channel and attrs.get("institution") is not None:
+            raise serializers.ValidationError(
+                "Channel follows cannot include an institution."
+            )
+        if has_category:
+            attrs["category"] = CategoryReferenceField(
+                queryset=Category.objects.all()
+            ).to_internal_value(attrs["category"])
+            institution = attrs.get("institution")
+            if institution is not None:
+                attrs["institution"] = InstitutionReferenceField(
+                    queryset=Institution.objects.filter(is_active=True)
+                ).to_internal_value(institution)
+        return attrs
+
+
 class PublicPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post

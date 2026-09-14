@@ -208,6 +208,7 @@ class SponsoredListing(models.Model):
     post = models.OneToOneField(Post, null=True, blank=True, on_delete=models.CASCADE)
     channel = models.ForeignKey(Channel, null=True, blank=True, on_delete=models.CASCADE)
     sponsor_name = models.CharField(max_length=200)
+    sponsor_email = models.EmailField()
     placement_type = models.CharField(max_length=30, choices=PlacementType.choices)
     amount_paid = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     currency = models.CharField(max_length=3, default="USD")

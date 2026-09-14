@@ -44,8 +44,15 @@ def health_check(request):
             cursor.execute("SELECT 1")
             cursor.fetchone()
     except OperationalError:
-        return JsonResponse({"status": "unhealthy", "database": "unavailable"}, status=503)
-    return JsonResponse({"status": "ok", "database": "ok"})
+        response = JsonResponse(
+            {"status": "unhealthy", "database": "unavailable"},
+            status=503,
+        )
+    else:
+        response = JsonResponse({"status": "ok", "database": "ok"})
+
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 urlpatterns = [

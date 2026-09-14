@@ -64,6 +64,14 @@ export type ApiChannel = {
   is_verified: boolean
   posts?: ApiPost[]
 }
+export type ApiOrientationGuide = {
+  id: number
+  guide_type: 'how_to' | 'directory_entry' | 'campus_map_note'
+  title: string
+  content: string
+  contact_info: string
+  sort_order: number
+}
 
 type Paginated<T> = { results: T[] }
 
@@ -79,6 +87,10 @@ export function getPosts(params = '') {
 export const getPost = (id: string) => request<ApiPost>(`/api/posts/${encodeURIComponent(id)}/`)
 export const getCategories = () => request<ApiCategory[] | Paginated<ApiCategory>>('/api/categories/').then(unwrap)
 export const getInstitutions = () => request<ApiInstitution[] | Paginated<ApiInstitution>>('/api/institutions/').then(unwrap)
+export const getOrientationGuides = (institutionShortCode: string) =>
+  request<Record<ApiOrientationGuide['guide_type'], ApiOrientationGuide[]>>(
+    `/api/orientation/${encodeURIComponent(institutionShortCode)}/`,
+  )
 export const getChannels = () => request<Paginated<ApiChannel> | ApiChannel[]>('/api/channels/').then(unwrap)
 export const getChannel = (slug: string) => request<ApiChannel>(`/api/channels/${encodeURIComponent(slug)}/`)
 

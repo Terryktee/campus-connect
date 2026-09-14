@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import F, Q
+from django.utils.text import slugify
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -29,12 +30,19 @@ from .models import (
     ModerationAction,
     Post,
     Report,
+    Channel,
+    Follow,
+    NotificationQueue,
 )
 from .permissions import IsScopedAdmin, IsSuperAdmin
 from .serializers import (
     AdminPostSerializer,
     AdminReportSerializer,
+    AdminChannelSerializer,
     PublicCategorySerializer,
+    PublicChannelDetailSerializer,
+    PublicChannelSerializer,
+    FollowSerializer,
     PublicInstitutionSerializer,
     PublicPostSerializer,
     PublicReportSerializer,
@@ -202,13 +210,28 @@ class PublicSubmissionView(CreateAPIView):
             return Response({"status": "received"}, status=status.HTTP_200_OK)
 
         validated_data = serializer.validated_data
-        validated_data.pop("channel_name", None)
+        channel_name = validated_data.pop("channel_name", "").strip()
         validated_data.pop("website", None)
-        post = Post.objects.create(
-            **validated_data,
-            status=Post.Status.PENDING,
-            is_flagged=_submission_is_flagged(validated_data),
-        )
+        with transaction.atomic():
+            channel = None
+            if channel_name:
+                channel_slug = slugify(channel_name)
+                channel = Channel.objects.filter(slug__iexact=channel_slug).first()
+                if channel is None:
+                    channel = Channel.objects.create(
+                        slug=channel_slug,
+                        name=channel_name,
+                        claim_contact=validated_data["submitter_contact"],
+                        institution=validated_data.get("institution"),
+                        category_focus=validated_data.get("category"),
+                        status=Channel.Status.PENDING,
+                    )
+            post = Post.objects.create(
+                **validated_data,
+                channel=channel,
+                status=Post.Status.PENDING,
+                is_flagged=_submission_is_flagged(validated_data),
+            )
         return Response(
             {"id": post.pk, "status": post.status},
             status=status.HTTP_201_CREATED,
@@ -296,6 +319,139 @@ class PublicInstitutionListView(ListAPIView):
     pagination_class = None
 
 
+class PublicChannelListView(ListAPIView):
+    authentication_classes = ()
+    permission_classes = ()
+    serializer_class = PublicChannelSerializer
+    pagination_class = PublicPostPagination
+
+    def get_queryset(self):
+        return Channel.objects.filter(status=Channel.Status.ACTIVE).select_related(
+            "category_focus", "institution"
+        ).order_by("name")
+
+
+class PublicChannelDetailView(RetrieveAPIView):
+    authentication_classes = ()
+    permission_classes = ()
+    serializer_class = PublicChannelDetailSerializer
+    lookup_field = "slug"
+
+    def get_queryset(self):
+        return Channel.objects.filter(status=Channel.Status.ACTIVE).select_related(
+            "category_focus", "institution"
+        )
+
+
+@method_decorator(ratelimit(key="ip", rate="10/h", method="POST", block=False), name="dispatch")
+class PublicChannelClaimView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get_channel(self, token):
+        return get_object_or_404(
+            Channel, claim_token=token, status=Channel.Status.PENDING, claimed_at__isnull=True
+        )
+
+    def get(self, request, token):
+        channel = self.get_channel(token)
+        return Response({"name": channel.name, "bio": channel.bio})
+
+    @transaction.atomic
+    def post(self, request, token):
+        channel = self.get_channel(token)
+        channel.claimed_at = timezone.now()
+        channel.save(update_fields=("claimed_at",))
+        return Response({"name": channel.name, "status": channel.status})
+
+
+def _contact_key(group, request):
+    try:
+        payload = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        payload = request.POST
+    return str(payload.get("follower_contact", "")).strip().lower() or "missing"
+
+
+@method_decorator(ratelimit(key="ip", rate="20/h", method=("POST", "DELETE"), block=False), name="dispatch")
+@method_decorator(ratelimit(key=_contact_key, rate="5/h", method=("POST", "DELETE"), block=False), name="dispatch")
+class PublicFollowView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def _limited(self, request):
+        if getattr(request, "limited", False):
+            return Response(
+                {"error": "Follow limit reached. Please try again later."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+    def _target(self, serializer):
+        data = serializer.validated_data
+        if data.get("channel"):
+            channel_lookup = Q(slug__iexact=data["channel"])
+            if str(data["channel"]).isdigit():
+                channel_lookup |= Q(pk=int(data["channel"]))
+            return get_object_or_404(
+                Channel, channel_lookup, status=Channel.Status.ACTIVE
+            ), None, None
+        return None, data["category"], data.get("institution")
+
+    def post(self, request):
+        limited = self._limited(request)
+        if limited:
+            return limited
+        serializer = FollowSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        channel, category, institution = self._target(serializer)
+        contact = serializer.validated_data["follower_contact"].lower()
+        with transaction.atomic():
+            if channel:
+                follow, created = Follow.objects.get_or_create(
+                    follower_contact=contact, channel=channel
+                )
+                if created:
+                    Channel.objects.filter(pk=channel.pk).update(
+                        follower_count=F("follower_count") + 1
+                    )
+            else:
+                existing = Follow.objects.filter(
+                    follower_contact=contact, category=category, institution=institution
+                ).first()
+                if existing:
+                    return Response({"error": "This follow already exists."}, status=409)
+                follow = Follow.objects.create(
+                    follower_contact=contact, category=category, institution=institution
+                )
+                created = True
+        if not created:
+            return Response({"error": "This follow already exists."}, status=409)
+        return Response({"id": follow.pk}, status=status.HTTP_201_CREATED)
+
+    def delete(self, request):
+        limited = self._limited(request)
+        if limited:
+            return limited
+        serializer = FollowSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        channel, category, institution = self._target(serializer)
+        filters = {"follower_contact": serializer.validated_data["follower_contact"].lower()}
+        if channel:
+            filters["channel"] = channel
+        else:
+            filters.update(category=category, institution=institution)
+        with transaction.atomic():
+            follow = Follow.objects.filter(**filters).first()
+            if not follow:
+                return Response({"error": "Follow not found."}, status=404)
+            follow.delete()
+            if channel:
+                Channel.objects.filter(pk=channel.pk, follower_count__gt=0).update(
+                    follower_count=F("follower_count") - 1
+                )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class AdminPostListView(InstitutionScopedQuerysetMixin, ListAPIView):
     authentication_classes = (AdminJWTAuthentication,)
     permission_classes = (IsScopedAdmin,)
@@ -348,6 +504,28 @@ class AdminPostActionView(InstitutionScopedQuerysetMixin, APIView):
                 post.is_featured = self.action == ModerationAction.Action.FEATURE
             post.save()
             ModerationAction.objects.create(post=post, admin=profile, action=self.action, reason=reason)
+            if self.action == ModerationAction.Action.APPROVE:
+                follow_query = (
+                    Q(category=post.category, institution__isnull=True)
+                    | Q(category=post.category, institution=post.institution)
+                )
+                if post.channel_id:
+                    follow_query |= Q(channel_id=post.channel_id)
+                follows = Follow.objects.filter(follow_query)
+                NotificationQueue.objects.bulk_create(
+                    [
+                        NotificationQueue(
+                            follow=follow,
+                            post=post,
+                            channel=(
+                                NotificationQueue.Channel.EMAIL
+                                if "@" in follow.follower_contact
+                                else NotificationQueue.Channel.WHATSAPP
+                            ),
+                        )
+                        for follow in follows
+                    ]
+                )
         return Response(AdminPostSerializer(post).data)
 
 
@@ -369,6 +547,47 @@ class AdminFeaturePostView(AdminPostActionView):
 
 class AdminUnfeaturePostView(AdminPostActionView):
     action = ModerationAction.Action.UNFEATURE
+
+
+class AdminChannelActionView(InstitutionScopedQuerysetMixin, APIView):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsScopedAdmin,)
+
+    def get_queryset(self):
+        queryset = Channel.objects.all()
+        profile = self.request.admin_profile
+        if profile.role == Admin.Role.MODERATOR:
+            queryset = queryset.filter(institution_id=profile.institution_id)
+        return queryset
+
+    def post(self, request, pk, action):
+        action_map = {
+            "approve": (Channel.Status.ACTIVE, ModerationAction.Action.APPROVE),
+            "reject": (Channel.Status.SUSPENDED, ModerationAction.Action.SUSPEND_CHANNEL),
+            "verify": (None, ModerationAction.Action.VERIFY_CHANNEL),
+            "suspend": (Channel.Status.SUSPENDED, ModerationAction.Action.SUSPEND_CHANNEL),
+        }
+        if action not in action_map:
+            return Response({"detail": "Unknown channel action."}, status=404)
+        channel = get_object_or_404(self.get_queryset(), pk=pk)
+        profile = request.admin_profile
+        new_status, audit_action = action_map[action]
+        with transaction.atomic():
+            if action == "verify":
+                channel.is_verified = True
+                channel.save(update_fields=("is_verified",))
+            else:
+                channel.status = new_status
+                if action == "approve":
+                    channel.approved_at = timezone.now()
+                channel.save(update_fields=("status", "approved_at") if action == "approve" else ("status",))
+            ModerationAction.objects.create(
+                channel=channel,
+                admin=profile,
+                action=audit_action,
+                reason=str(request.data.get("reason", ""))[:255],
+            )
+        return Response(AdminChannelSerializer(channel).data)
 
 
 class AdminReportListView(InstitutionScopedQuerysetMixin, ListAPIView):

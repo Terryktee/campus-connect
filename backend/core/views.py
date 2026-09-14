@@ -1,4 +1,3 @@
-import logging
 import json
 import re
 from urllib.parse import urlsplit
@@ -13,7 +12,14 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from rest_framework import serializers, status
-from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import (
+    CreateAPIView,
+    ListAPIView,
+    ListCreateAPIView,
+    RetrieveAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -33,25 +39,26 @@ from .models import (
     Channel,
     Follow,
     NotificationQueue,
+    OrientationGuide,
 )
 from .permissions import IsScopedAdmin, IsSuperAdmin
+from .tasks import send_admin_invite_email, send_channel_claim_email
 from .serializers import (
     AdminPostSerializer,
     AdminReportSerializer,
     AdminChannelSerializer,
+    AdminOrientationGuideSerializer,
     PublicCategorySerializer,
     PublicChannelDetailSerializer,
     PublicChannelSerializer,
     FollowSerializer,
     PublicInstitutionSerializer,
+    PublicOrientationGuideSerializer,
     PublicPostSerializer,
     PublicReportSerializer,
     PublicSubmissionSerializer,
     ModerationActionSerializer,
 )
-
-logger = logging.getLogger(__name__)
-
 
 class AdminTokenObtainPairView(TokenObtainPairView):
     authentication_classes = ()
@@ -74,6 +81,90 @@ class AdminMeView(APIView):
                 "institution": profile.institution.name if profile.institution else None,
             }
         )
+
+
+class FailedNotificationSerializer(serializers.ModelSerializer):
+    post_title = serializers.CharField(source="post.title", read_only=True)
+
+    class Meta:
+        model = NotificationQueue
+        fields = ("id", "post", "post_title", "status", "retry_count", "created_at", "sent_at")
+
+
+class AdminFailedNotificationListView(ListAPIView):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsSuperAdmin,)
+    serializer_class = FailedNotificationSerializer
+
+    def get_queryset(self):
+        return NotificationQueue.objects.filter(
+            status=NotificationQueue.Status.FAILED
+        ).select_related("post").order_by("-created_at")
+
+
+class PublicOrientationGuideView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get(self, request, institution_short_code):
+        institution = get_object_or_404(
+            Institution, short_code=institution_short_code, is_active=True
+        )
+        guides = OrientationGuide.objects.filter(
+            institution=institution, is_published=True
+        ).order_by("sort_order", "id")
+        grouped = {guide_type: [] for guide_type, _ in OrientationGuide.GuideType.choices}
+        for guide in guides:
+            grouped[guide.guide_type].append(
+                PublicOrientationGuideSerializer(guide).data
+            )
+        return Response(grouped)
+
+
+class AdminOrientationGuideListView(InstitutionScopedQuerysetMixin, ListCreateAPIView):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsScopedAdmin,)
+    serializer_class = AdminOrientationGuideSerializer
+    queryset = OrientationGuide.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("institution").order_by(
+            "sort_order", "id"
+        )
+
+    def perform_create(self, serializer):
+        institution = serializer.validated_data["institution"]
+        profile = self.request.admin_profile
+        if (
+            profile.role == Admin.Role.MODERATOR
+            and institution.pk != profile.institution_id
+        ):
+            raise PermissionDenied("You can only manage guides for your institution.")
+        serializer.save()
+
+
+class AdminOrientationGuideDetailView(
+    InstitutionScopedQuerysetMixin, RetrieveUpdateDestroyAPIView
+):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsScopedAdmin,)
+    serializer_class = AdminOrientationGuideSerializer
+    queryset = OrientationGuide.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("institution")
+
+    def perform_update(self, serializer):
+        institution = serializer.validated_data.get(
+            "institution", serializer.instance.institution
+        )
+        profile = self.request.admin_profile
+        if (
+            profile.role == Admin.Role.MODERATOR
+            and institution.pk != profile.institution_id
+        ):
+            raise PermissionDenied("You can only manage guides for your institution.")
+        serializer.save()
 
 
 class AdminInviteSerializer(serializers.Serializer):
@@ -101,10 +192,6 @@ class AdminInviteSerializer(serializers.Serializer):
         return attrs
 
 
-def log_admin_invitation(user, invite_link):
-    logger.info("Admin invitation prepared for %s: %s", user.email, invite_link)
-
-
 class AdminInviteView(CreateAPIView):
     authentication_classes = (AdminJWTAuthentication,)
     permission_classes = (IsSuperAdmin,)
@@ -129,7 +216,13 @@ class AdminInviteView(CreateAPIView):
             institution=data.get("institution"),
         )
         invite_link = f"{getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')}/admin/invite/{user.pk}"
-        log_admin_invitation(user, invite_link)
+        transaction.on_commit(
+            lambda: send_admin_invite_email.delay(
+                recipient=user.email,
+                invite_link=invite_link,
+                recipient_name=user.get_full_name() or user.username,
+            )
+        )
         return Response(
             {"id": profile.pk, "username": user.username, "role": profile.role},
             status=status.HTTP_201_CREATED,
@@ -362,6 +455,16 @@ class PublicChannelClaimView(APIView):
         channel = self.get_channel(token)
         channel.claimed_at = timezone.now()
         channel.save(update_fields=("claimed_at",))
+        transaction.on_commit(
+            lambda: send_channel_claim_email.delay(
+                recipient=channel.claim_contact,
+                channel_name=channel.name,
+                claim_link=(
+                    f"{getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')}"
+                    f"/channels/claim/{channel.claim_token}"
+                ),
+            )
+        )
         return Response({"name": channel.name, "status": channel.status})
 
 

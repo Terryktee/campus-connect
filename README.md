@@ -28,3 +28,8 @@ The browser uses `http://localhost:8000` for API requests. Containers use
 the Compose service names `mysql` and `redis` for internal connections, so
 those values must not be replaced with `localhost` in container
 configuration.
+
+Email settings are optional for local development. Compose defaults the SMTP
+backend, host, port (`25`), and disabled TLS/SSL when those variables are not
+present in the root `.env`; configure the `EMAIL_*` variables there when
+testing real email delivery.

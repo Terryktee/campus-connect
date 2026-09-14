@@ -22,12 +22,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(0, 'The CampusConnect backend is unavailable.')
   }
 
+  const body = await response.json().catch(() => ({}))
   if (!response.ok) {
-    throw new ApiError(response.status, response.status >= 500
-      ? 'The CampusConnect backend is temporarily unavailable.'
-      : 'This CampusConnect request could not be completed.')
+    const message = typeof body?.error === 'string'
+      ? body.error
+      : typeof body?.detail === 'string'
+        ? body.detail
+        : response.status >= 500
+          ? 'The CampusConnect backend is temporarily unavailable.'
+          : 'This CampusConnect request could not be completed.'
+    throw new ApiError(response.status, message, normaliseErrors(body))
   }
-  return response.json() as Promise<T>
+  return body as T
 }
 
 export type ApiCategory = { id: number; name: string; slug: string }
@@ -75,6 +81,28 @@ export const getCategories = () => request<ApiCategory[] | Paginated<ApiCategory
 export const getInstitutions = () => request<ApiInstitution[] | Paginated<ApiInstitution>>('/api/institutions/').then(unwrap)
 export const getChannels = () => request<Paginated<ApiChannel> | ApiChannel[]>('/api/channels/').then(unwrap)
 export const getChannel = (slug: string) => request<ApiChannel>(`/api/channels/${encodeURIComponent(slug)}/`)
+
+export type FollowTarget = {
+  channel?: string
+  category?: string
+  institution?: string
+}
+
+export function follow(contact: string, target: FollowTarget) {
+  return request<{ id: number }>('/api/follow/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ follower_contact: contact, ...target }),
+  })
+}
+
+export function unfollow(contact: string, target: FollowTarget) {
+  return request<void>('/api/follow/', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ follower_contact: contact, ...target }),
+  })
+}
 
 export type SubmissionResponse = {
   id?: number

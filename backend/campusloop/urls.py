@@ -5,6 +5,7 @@ from core.views import (
     AdminMeView,
     AdminTokenObtainPairView,
     AdminTokenRefreshView,
+    PublicSubmissionView,
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path("api/auth/refresh/", AdminTokenRefreshView.as_view(), name="auth-refresh"),
     path("api/admin/me/", AdminMeView.as_view(), name="admin-me"),
     path("api/admin/invite/", AdminInviteView.as_view(), name="admin-invite"),
+    path("api/posts/submit/", PublicSubmissionView.as_view(), name="post-submit"),
 ]

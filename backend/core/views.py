@@ -1,8 +1,13 @@
 import logging
+import json
+import re
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.utils.decorators import method_decorator
+from django_ratelimit.decorators import ratelimit
 from rest_framework import serializers, status
 from rest_framework.generics import CreateAPIView
 from rest_framework.response import Response
@@ -10,8 +15,9 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .authentication import AdminJWTAuthentication
-from .models import Admin, Institution
+from .models import Admin, AllowlistedDomain, BlocklistKeyword, Institution, Post
 from .permissions import IsScopedAdmin, IsSuperAdmin
+from .serializers import PublicSubmissionSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -95,5 +101,81 @@ class AdminInviteView(CreateAPIView):
         log_admin_invitation(user, invite_link)
         return Response(
             {"id": profile.pk, "username": user.username, "role": profile.role},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+def _submitter_contact_key(group, request):
+    if request.content_type == "application/json":
+        try:
+            payload = json.loads(request.body or b"{}")
+        except json.JSONDecodeError:
+            payload = {}
+    else:
+        payload = request.POST
+    return str(payload.get("submitter_contact", "")).strip().lower() or "missing"
+
+
+def _extract_urls(value):
+    return re.findall(r"https?://[^\s<>\"]+", value or "", flags=re.IGNORECASE)
+
+
+def _domain_is_allowlisted(hostname):
+    hostname = hostname.lower().rstrip(".")
+    domains = AllowlistedDomain.objects.values_list("domain", flat=True)
+    return any(
+        hostname == domain.lower().lstrip("*.").rstrip(".")
+        or hostname.endswith(f".{domain.lower().lstrip('*.').rstrip('.')}")
+        for domain in domains
+    )
+
+
+def _submission_is_flagged(validated_data):
+    text = f"{validated_data['title']} {validated_data['content']}".casefold()
+    if BlocklistKeyword.objects.filter(keyword__isnull=False).exists():
+        if any(keyword.casefold() in text for keyword in BlocklistKeyword.objects.values_list("keyword", flat=True)):
+            return True
+
+    urls = _extract_urls(validated_data["content"])
+    if validated_data.get("link_url"):
+        urls.append(validated_data["link_url"])
+    return any(
+        not _domain_is_allowlisted(urlsplit(url).hostname or "")
+        for url in urls
+    )
+
+
+@method_decorator(ratelimit(key="ip", rate="20/h", method="POST", block=False), name="dispatch")
+@method_decorator(
+    ratelimit(key=_submitter_contact_key, rate="5/h", method="POST", block=False),
+    name="dispatch",
+)
+class PublicSubmissionView(CreateAPIView):
+    authentication_classes = ()
+    permission_classes = ()
+    serializer_class = PublicSubmissionSerializer
+
+    def create(self, request, *args, **kwargs):
+        if getattr(request, "limited", False):
+            return Response(
+                {"error": "Submission limit reached. Please try again later."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if serializer.context.get("honeypot_triggered"):
+            return Response({"status": "received"}, status=status.HTTP_200_OK)
+
+        validated_data = serializer.validated_data
+        validated_data.pop("channel_name", None)
+        validated_data.pop("website", None)
+        post = Post.objects.create(
+            **validated_data,
+            status=Post.Status.PENDING,
+            is_flagged=_submission_is_flagged(validated_data),
+        )
+        return Response(
+            {"id": post.pk, "status": post.status},
             status=status.HTTP_201_CREATED,
         )

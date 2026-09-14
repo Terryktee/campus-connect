@@ -1,2 +1,2 @@
-import { Admin } from '@/components/campus-app'
-export default function Page() { return <Admin /> }
+import { AdminDashboard } from '@/components/admin-dashboard'
+export default function Page() { return <AdminDashboard /> }

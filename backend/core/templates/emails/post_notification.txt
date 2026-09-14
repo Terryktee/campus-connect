@@ -1,0 +1,7 @@
+A new Campus Loop post is available.
+
+{{ title }}
+
+{{ content }}
+
+Post ID: {{ post_id }}

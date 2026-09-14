@@ -1,0 +1,9 @@
+New Campus Loop posts
+
+{% for notification in notifications %}{{ notification.title }}
+
+{{ notification.content }}
+
+Post ID: {{ notification.post_id }}
+
+{% endfor %}

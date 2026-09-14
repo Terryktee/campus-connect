@@ -1,0 +1,8 @@
+Hello{% if recipient_name %} {{ recipient_name }}{% endif %},
+
+You have been invited to administer Campus Loop. Use this link to finish setting
+up your account:
+
+{{ invite_link }}
+
+If you did not expect this invitation, you can ignore this message.

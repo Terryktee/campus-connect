@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
 from rest_framework import serializers
 
-from .models import Channel, Category, Institution, Post
+from .models import Channel, Category, Institution, ModerationAction, Post, Report
 
 
 class CategoryReferenceField(serializers.RelatedField):
@@ -104,14 +104,9 @@ class PublicPostSerializer(serializers.ModelSerializer):
             "link_url",
             "submitter_name",
             "submitter_institution",
-            "status",
-            "is_flagged",
             "is_featured",
-            "featured_until",
             "view_count",
             "created_at",
-            "approved_at",
-            "taken_down_at",
         )
 
 
@@ -122,10 +117,50 @@ class AdminChannelSerializer(PublicChannelSerializer):
 
 class AdminPostSerializer(PublicPostSerializer):
     class Meta(PublicPostSerializer.Meta):
-        fields = PublicPostSerializer.Meta.fields + (
+        fields = (
+            "id",
+            "title",
+            "content",
+            "category",
+            "institution",
+            "channel",
+            "image_url",
+            "link_url",
+            "submitter_name",
+            "submitter_institution",
             "submitter_contact",
+            "status",
+            "is_flagged",
+            "is_featured",
+            "featured_until",
+            "view_count",
+            "created_at",
+            "approved_at",
+            "taken_down_at",
             "rejection_reason",
         )
+
+
+class AdminReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Report
+        fields = ("id", "post", "reason", "reporter_contact", "status", "created_at")
+
+
+class PublicReportSerializer(serializers.ModelSerializer):
+    reporter_contact = serializers.CharField(
+        max_length=255, required=False, allow_blank=True, write_only=True, default=""
+    )
+
+    class Meta:
+        model = Report
+        fields = ("reason", "reporter_contact")
+
+
+class ModerationActionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ModerationAction
+        fields = ("id", "post", "channel", "admin", "action", "reason", "note", "created_at")
 
 
 class PublicSubmissionSerializer(serializers.ModelSerializer):

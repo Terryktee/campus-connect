@@ -110,6 +110,7 @@ class ModerationAction(models.Model):
         VERIFY_CHANNEL = "verify_channel", "Verify channel"
         SUSPEND_CHANNEL = "suspend_channel", "Suspend channel"
         DISMISS_REPORT = "dismiss_report", "Dismiss report"
+        ESCALATE_REPORT = "escalate_report", "Escalate report"
 
     post = models.ForeignKey(Post, null=True, blank=True, on_delete=models.SET_NULL)
     channel = models.ForeignKey(Channel, null=True, blank=True, on_delete=models.SET_NULL)

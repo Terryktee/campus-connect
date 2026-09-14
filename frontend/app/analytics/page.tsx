@@ -1,2 +1,5 @@
-import {Analytics} from '@/components/campus-app'
-export default function Page(){return <Analytics/>}
+import { ApiAnalytics } from '@/components/public-api-pages'
+
+export default function Page() {
+  return <ApiAnalytics />
+}

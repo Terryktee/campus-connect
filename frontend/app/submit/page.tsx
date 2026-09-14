@@ -1,2 +1,5 @@
-import { Submit } from '@/components/campus-app'
-export default function Page() { return <Submit /> }
+import { ApiSubmit } from '@/components/public-api-pages'
+
+export default function Page() {
+  return <ApiSubmit />
+}

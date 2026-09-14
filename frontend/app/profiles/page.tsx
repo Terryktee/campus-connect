@@ -1,2 +1,5 @@
-import { Profiles } from '@/components/campus-app'
-export default function Page(){return <Profiles/>}
+import { ApiProfiles } from '@/components/public-api-pages'
+
+export default function Page() {
+  return <ApiProfiles />
+}

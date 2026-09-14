@@ -1,2 +1,5 @@
-import { Orientation } from '@/components/campus-app'
-export default function Page() { return <Orientation /> }
+import { ApiOrientation } from '@/components/public-api-pages'
+
+export default function Page() {
+  return <ApiOrientation />
+}

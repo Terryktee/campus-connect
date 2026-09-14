@@ -1,2 +1,5 @@
-import {Events} from '@/components/campus-app'
-export default function Page(){return <Events/>}
+import { ApiEvents } from '@/components/public-api-pages'
+
+export default function Page() {
+  return <ApiEvents />
+}

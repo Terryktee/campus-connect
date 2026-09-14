@@ -5,7 +5,7 @@ from urllib.parse import urlsplit
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import Exists, F, OuterRef, Q
 from django.utils.text import slugify
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -40,6 +40,7 @@ from .models import (
     Follow,
     NotificationQueue,
     OrientationGuide,
+    SponsoredListing,
 )
 from .permissions import IsScopedAdmin, IsSuperAdmin
 from .tasks import send_admin_invite_email, send_channel_claim_email
@@ -58,6 +59,7 @@ from .serializers import (
     PublicReportSerializer,
     PublicSubmissionSerializer,
     ModerationActionSerializer,
+    AdminSponsoredListingSerializer,
 )
 
 class AdminTokenObtainPairView(TokenObtainPairView):
@@ -100,6 +102,59 @@ class AdminFailedNotificationListView(ListAPIView):
         return NotificationQueue.objects.filter(
             status=NotificationQueue.Status.FAILED
         ).select_related("post").order_by("-created_at")
+
+
+class AdminSponsoredListingListView(ListCreateAPIView):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsSuperAdmin,)
+    serializer_class = AdminSponsoredListingSerializer
+    queryset = SponsoredListing.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("post", "channel").order_by("-created_at")
+
+
+class AdminSponsoredListingDetailView(RetrieveUpdateDestroyAPIView):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsSuperAdmin,)
+    serializer_class = AdminSponsoredListingSerializer
+    queryset = SponsoredListing.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("post", "channel")
+
+
+class SponsorListingAnalyticsView(RetrieveAPIView):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsScopedAdmin,)
+    serializer_class = AdminSponsoredListingSerializer
+    queryset = SponsoredListing.objects.all()
+
+    def get_queryset(self):
+        profile = self.request.admin_profile
+        if profile.role != Admin.Role.SPONSOR_VIEWER:
+            return SponsoredListing.objects.none()
+        return SponsoredListing.objects.filter(
+            sponsor_email__iexact=profile.user.email
+        ).select_related("post", "channel")
+
+    def retrieve(self, request, *args, **kwargs):
+        listing = self.get_object()
+        if listing.post:
+            view_count = listing.post.view_count
+            follower_count = None
+        else:
+            view_count = None
+            follower_count = listing.channel.follower_count
+        return Response(
+            {
+                "listing_id": listing.pk,
+                "post": listing.post_id,
+                "channel": listing.channel_id,
+                "view_count": view_count,
+                "follower_count": follower_count,
+            }
+        )
 
 
 class PublicOrientationGuideView(APIView):
@@ -344,9 +399,18 @@ class PublicPostListView(ListAPIView):
     pagination_class = PublicPostPagination
 
     def get_queryset(self):
+        now = timezone.now()
+        active_sponsored_post = SponsoredListing.objects.filter(
+            post=OuterRef("pk"),
+            placement_type=SponsoredListing.PlacementType.FEATURED_POST,
+            starts_at__lte=now,
+            ends_at__gte=now,
+        )
         queryset = Post.objects.filter(status=Post.Status.APPROVED).select_related(
             "category", "institution", "channel"
-        ).order_by("-is_featured", "-created_at")
+        ).annotate(sponsored_featured=Exists(active_sponsored_post)).order_by(
+            "-is_featured", "-sponsored_featured", "-created_at"
+        )
         if self.request.query_params.get("category"):
             queryset = queryset.filter(category__slug=self.request.query_params["category"])
         if self.request.query_params.get("institution"):
@@ -419,9 +483,18 @@ class PublicChannelListView(ListAPIView):
     pagination_class = PublicPostPagination
 
     def get_queryset(self):
+        now = timezone.now()
+        active_verified_channel = SponsoredListing.objects.filter(
+            channel=OuterRef("pk"),
+            placement_type=SponsoredListing.PlacementType.VERIFIED_CHANNEL,
+            starts_at__lte=now,
+            ends_at__gte=now,
+        )
         return Channel.objects.filter(status=Channel.Status.ACTIVE).select_related(
             "category_focus", "institution"
-        ).order_by("name")
+        ).annotate(sponsored_verified=Exists(active_verified_channel)).order_by(
+            "-is_verified", "-sponsored_verified", "name"
+        )
 
 
 class PublicChannelDetailView(RetrieveAPIView):

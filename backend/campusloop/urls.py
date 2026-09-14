@@ -29,6 +29,9 @@ from core.views import (
     PublicSubmissionView,
     AdminOrientationGuideDetailView,
     AdminOrientationGuideListView,
+    AdminSponsoredListingListView,
+    AdminSponsoredListingDetailView,
+    SponsorListingAnalyticsView,
 )
 
 urlpatterns = [
@@ -78,4 +81,7 @@ urlpatterns = [
     path("api/admin/reports/", AdminReportListView.as_view(), name="admin-report-list"),
     path("api/admin/reports/<int:pk>/<str:action>/", AdminReportActionView.as_view(), name="admin-report-action"),
     path("api/admin/moderation-actions/", AdminModerationActionListView.as_view(), name="admin-moderation-action-list"),
+    path("api/admin/sponsored-listings/", AdminSponsoredListingListView.as_view(), name="admin-sponsored-listing-list"),
+    path("api/admin/sponsored-listings/<int:pk>/", AdminSponsoredListingDetailView.as_view(), name="admin-sponsored-listing-detail"),
+    path("api/sponsor/my-listing/<int:pk>/", SponsorListingAnalyticsView.as_view(), name="sponsor-listing-analytics"),
 ]

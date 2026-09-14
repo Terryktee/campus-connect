@@ -4,6 +4,7 @@ import re
 
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import (
@@ -14,6 +15,7 @@ from .models import (
     OrientationGuide,
     Post,
     Report,
+    SponsoredListing,
 )
 
 
@@ -101,6 +103,8 @@ class PublicCategorySerializer(serializers.ModelSerializer):
 
 
 class PublicChannelSerializer(serializers.ModelSerializer):
+    is_verified = serializers.SerializerMethodField()
+
     class Meta:
         model = Channel
         fields = (
@@ -116,6 +120,16 @@ class PublicChannelSerializer(serializers.ModelSerializer):
             "created_at",
             "approved_at",
         )
+
+    def get_is_verified(self, channel):
+        if channel.is_verified:
+            return True
+        return SponsoredListing.objects.filter(
+            channel=channel,
+            placement_type=SponsoredListing.PlacementType.VERIFIED_CHANNEL,
+            starts_at__lte=timezone.now(),
+            ends_at__gte=timezone.now(),
+        ).exists()
 
 
 class PublicChannelDetailSerializer(PublicChannelSerializer):
@@ -166,6 +180,8 @@ class FollowSerializer(serializers.Serializer):
 
 
 class PublicPostSerializer(serializers.ModelSerializer):
+    is_featured = serializers.SerializerMethodField()
+
     class Meta:
         model = Post
         fields = (
@@ -183,6 +199,16 @@ class PublicPostSerializer(serializers.ModelSerializer):
             "view_count",
             "created_at",
         )
+
+    def get_is_featured(self, post):
+        if post.is_featured:
+            return True
+        return SponsoredListing.objects.filter(
+            post=post,
+            placement_type=SponsoredListing.PlacementType.FEATURED_POST,
+            starts_at__lte=timezone.now(),
+            ends_at__gte=timezone.now(),
+        ).exists()
 
 
 class AdminChannelSerializer(PublicChannelSerializer):
@@ -220,6 +246,47 @@ class AdminReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Report
         fields = ("id", "post", "reason", "reporter_contact", "status", "created_at")
+
+
+class AdminSponsoredListingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SponsoredListing
+        fields = (
+            "id",
+            "post",
+            "channel",
+            "sponsor_name",
+            "sponsor_email",
+            "placement_type",
+            "amount_paid",
+            "currency",
+            "starts_at",
+            "ends_at",
+            "created_at",
+        )
+        read_only_fields = ("id", "created_at")
+
+    def validate(self, attrs):
+        post = attrs.get("post", getattr(self.instance, "post", None))
+        channel = attrs.get("channel", getattr(self.instance, "channel", None))
+        placement = attrs.get(
+            "placement_type", getattr(self.instance, "placement_type", None)
+        )
+        if bool(post) == bool(channel):
+            raise serializers.ValidationError("Provide exactly one post or channel.")
+        if placement == SponsoredListing.PlacementType.FEATURED_POST and not post:
+            raise serializers.ValidationError(
+                "featured_post listings must target a post."
+            )
+        if placement == SponsoredListing.PlacementType.VERIFIED_CHANNEL and not channel:
+            raise serializers.ValidationError(
+                "verified_channel listings must target a channel."
+            )
+        if attrs.get("ends_at", getattr(self.instance, "ends_at", None)) <= attrs.get(
+            "starts_at", getattr(self.instance, "starts_at", None)
+        ):
+            raise serializers.ValidationError("ends_at must be after starts_at.")
+        return attrs
 
 
 class PublicReportSerializer(serializers.ModelSerializer):

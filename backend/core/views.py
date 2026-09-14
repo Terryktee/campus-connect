@@ -1,4 +1,3 @@
-import logging
 import json
 import re
 from urllib.parse import urlsplit
@@ -35,6 +34,7 @@ from .models import (
     NotificationQueue,
 )
 from .permissions import IsScopedAdmin, IsSuperAdmin
+from .tasks import send_admin_invite_email, send_channel_claim_email
 from .serializers import (
     AdminPostSerializer,
     AdminReportSerializer,
@@ -49,9 +49,6 @@ from .serializers import (
     PublicSubmissionSerializer,
     ModerationActionSerializer,
 )
-
-logger = logging.getLogger(__name__)
-
 
 class AdminTokenObtainPairView(TokenObtainPairView):
     authentication_classes = ()
@@ -74,6 +71,25 @@ class AdminMeView(APIView):
                 "institution": profile.institution.name if profile.institution else None,
             }
         )
+
+
+class FailedNotificationSerializer(serializers.ModelSerializer):
+    post_title = serializers.CharField(source="post.title", read_only=True)
+
+    class Meta:
+        model = NotificationQueue
+        fields = ("id", "post", "post_title", "status", "retry_count", "created_at", "sent_at")
+
+
+class AdminFailedNotificationListView(ListAPIView):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsSuperAdmin,)
+    serializer_class = FailedNotificationSerializer
+
+    def get_queryset(self):
+        return NotificationQueue.objects.filter(
+            status=NotificationQueue.Status.FAILED
+        ).select_related("post").order_by("-created_at")
 
 
 class AdminInviteSerializer(serializers.Serializer):
@@ -101,10 +117,6 @@ class AdminInviteSerializer(serializers.Serializer):
         return attrs
 
 
-def log_admin_invitation(user, invite_link):
-    logger.info("Admin invitation prepared for %s: %s", user.email, invite_link)
-
-
 class AdminInviteView(CreateAPIView):
     authentication_classes = (AdminJWTAuthentication,)
     permission_classes = (IsSuperAdmin,)
@@ -129,7 +141,13 @@ class AdminInviteView(CreateAPIView):
             institution=data.get("institution"),
         )
         invite_link = f"{getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')}/admin/invite/{user.pk}"
-        log_admin_invitation(user, invite_link)
+        transaction.on_commit(
+            lambda: send_admin_invite_email.delay(
+                recipient=user.email,
+                invite_link=invite_link,
+                recipient_name=user.get_full_name() or user.username,
+            )
+        )
         return Response(
             {"id": profile.pk, "username": user.username, "role": profile.role},
             status=status.HTTP_201_CREATED,
@@ -362,6 +380,16 @@ class PublicChannelClaimView(APIView):
         channel = self.get_channel(token)
         channel.claimed_at = timezone.now()
         channel.save(update_fields=("claimed_at",))
+        transaction.on_commit(
+            lambda: send_channel_claim_email.delay(
+                recipient=channel.claim_contact,
+                channel_name=channel.name,
+                claim_link=(
+                    f"{getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')}"
+                    f"/channels/claim/{channel.claim_token}"
+                ),
+            )
+        )
         return Response({"name": channel.name, "status": channel.status})
 
 

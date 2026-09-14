@@ -1,0 +1,73 @@
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '')
+
+export class ApiError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: { Accept: 'application/json', ...init?.headers },
+    })
+  } catch {
+    throw new ApiError(0, 'The CampusConnect backend is unavailable.')
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, response.status >= 500
+      ? 'The CampusConnect backend is temporarily unavailable.'
+      : 'This CampusConnect request could not be completed.')
+  }
+  return response.json() as Promise<T>
+}
+
+export type ApiCategory = { id: number; name: string; slug: string }
+export type ApiInstitution = { id: number; name: string; short_code: string }
+export type ApiPost = {
+  id: number
+  title: string
+  content: string
+  category: number
+  institution: number | null
+  channel: number | null
+  image_url: string
+  link_url: string
+  submitter_name: string
+  submitter_institution: string
+  is_featured: boolean
+  view_count: number
+  created_at: string
+}
+export type ApiChannel = {
+  id: number
+  slug: string
+  name: string
+  bio: string
+  category_focus: number | null
+  institution: number | null
+  follower_count: number
+  is_verified: boolean
+  posts?: ApiPost[]
+}
+
+type Paginated<T> = { results: T[] }
+
+function unwrap<T>(value: T[] | Paginated<T>): T[] {
+  return Array.isArray(value) ? value : value.results
+}
+
+export function getPosts(params = '') {
+  return request<Paginated<ApiPost> | ApiPost[]>(`/api/posts/${params}`)
+    .then(unwrap)
+}
+
+export const getPost = (id: string) => request<ApiPost>(`/api/posts/${encodeURIComponent(id)}/`)
+export const getCategories = () => request<ApiCategory[] | Paginated<ApiCategory>>('/api/categories/').then(unwrap)
+export const getInstitutions = () => request<ApiInstitution[] | Paginated<ApiInstitution>>('/api/institutions/').then(unwrap)
+export const getChannels = () => request<Paginated<ApiChannel> | ApiChannel[]>('/api/channels/').then(unwrap)
+export const getChannel = (slug: string) => request<ApiChannel>(`/api/channels/${encodeURIComponent(slug)}/`)

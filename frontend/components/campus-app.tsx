@@ -1,8 +1,8 @@
 'use client'
 import Link from 'next/link'
-import {useState} from 'react'
+import {useEffect, useState} from 'react'
 import {Bell,CalendarDays,ChartNoAxesColumn,ImagePlus,Menu,MessageCircle,Search,ShieldCheck,Sparkles,UserRound,X} from 'lucide-react'
-import {ApiError, submitPost} from '@/lib/api'
+import {ApiError, getInstitutions, getOrientationGuides, submitPost, type ApiInstitution, type ApiOrientationGuide} from '@/lib/api'
 import {acceptedImageTypes,adminPosts,analytics,analyticsNote,channels,categories,defaultCategory,defaultEventType,defaultInstitution,demoAccounts,eventTypes,events,footerLinks,guides,imageNote,institutions,linkNote,maxImageSize,maxUploadImages,posts,profiles,setDemoSession,type Post,type Profile} from '@/lib/data'
 
 export function Header(){const[open,setOpen]=useState(false);return <header className="site-header"><div className="container nav"><Link href="/" className="brand"><span className="brand-mark">C</span><span>CampusConnect <em>ZW</em></span></Link><nav className={open?'nav-links open':'nav-links'}><Link href="/">Explore</Link><Link href="/channels">Channels</Link><Link href="/profiles">Profiles</Link><Link href="/events">Events</Link><Link href="/orientation">Orientation Hub</Link><Link href="/submit" className="nav-cta">Submit a Post <span>+</span></Link></nav><div className="nav-actions"><Link href="/analytics" className="icon-button" aria-label="Analytics"><ChartNoAxesColumn/></Link><button className="icon-button" aria-label="Search"><Search/></button><button className="icon-button" aria-label="Notifications"><Bell/></button><button className="menu-button" onClick={()=>setOpen(!open)} aria-label="Menu">{open?<X/>:<Menu/>}</button></div></div></header>}
@@ -54,7 +54,58 @@ export function Profiles(){const[query,setQuery]=useState('');const filtered=pro
 export function ProfileCard({profile}:{profile:Profile}){return <Link href={`/profiles/${profile.username}`} className={`profile-card ${profile.accent}`}><div className="profile-avatar">{profile.name.split(' ').map(x=>x[0]).join('').slice(0,2)}</div><span className="profile-handle">@{profile.username}</span><h3>{profile.name}</h3><p>{profile.programme} · {profile.institution}</p><div className="tag-row">{profile.tags.map(tag=><span key={tag}>{tag}</span>)}</div><div className="profile-description">{profile.description}</div></Link>}
 export function Events(){return <><Header/><main className="page"><div className="container page-intro"><span className="eyebrow"><CalendarDays/> WHAT&apos;S ON</span><h1>Campus events</h1><p>Find workshops, socials and useful sessions happening across the student community.</p><Link href="/events/new" className="button primary">Add an event <span>+</span></Link></div><div className="container event-grid">{events.map(event=><article className="event-card" key={event.id}><div className="event-date"><strong>{event.date.split(' ')[0]}</strong><span>{event.date.split(' ')[1]}</span></div><div><span className="category-pill">{event.type}</span><h3>{event.title}</h3><p>{event.description}</p><small>{event.place} · Hosted by {event.host}</small></div></article>)}</div></main><Footer/></>}
 export function Channels(){const[followed,setFollowed]=useState<string[]>([]);return <><Header/><main className="page"><div className="container page-intro"><span className="eyebrow">FIND YOUR PEOPLE</span><h1>Campus channels</h1><p>Join focused communities with their own description, conversations and opportunities.</p><Link href="/channels/new" className="button primary">Add a channel <span>+</span></Link></div><div className="container channel-grid">{channels.map(c=><div className={`channel-card ${c.color}`} key={c.slug}><Link href={`/c/${c.slug}`} className="channel-badge">{c.short}</Link><div><Link href={`/c/${c.slug}`}><h3>{c.name}</h3></Link><p>{c.description}</p><span>{c.members} followers · {c.focus}</span><button className="button small" onClick={()=>setFollowed(f=>f.includes(c.slug)?f.filter(x=>x!==c.slug):[...f,c.slug])}>{followed.includes(c.slug)?'Following':'Follow'}</button></div></div>)}</div></main><Footer/></>}
-export function Orientation(){const[selected,setSelected]=useState(defaultInstitution);return <><Header/><main className="page"><div className="container orientation-grid"><div className="page-intro"><span className="eyebrow">A SMALL HEAD START</span><h1>New here?<br/><i>Start here.</i></h1><p>A friendly guide to the bits no one puts in the prospectus.</p><select value={selected} onChange={e=>setSelected(e.target.value)}>{institutions.map(x=><option key={x}>{x}</option>)}</select></div><div className="guide-stack">{guides.map((g,i)=><details key={g.title} open={i===0}><summary><span>0{i+1}</span>{g.title}<span>⌄</span></summary><p>{g.body}</p></details>)}</div></div><section className="container events"><div className="section-heading"><div><span className="eyebrow">{selected.toUpperCase()}</span><h2>This week&apos;s orientation events</h2></div><Link href="/events/new" className="text-link">Suggest an event →</Link></div><div className="event-row">{events.map(e=><div className="event" key={e.title}><strong>{e.date}</strong><span className="category-pill">{e.type}</span><h3>{e.title}</h3><p>{e.place}</p></div>)}</div></section></main><Footer/></>}
+export function Orientation(){
+  const [selected,setSelected]=useState(defaultInstitution)
+  const [availableInstitutions,setAvailableInstitutions]=useState<ApiInstitution[]>([])
+  const [guideGroups,setGuideGroups]=useState<Record<ApiOrientationGuide['guide_type'],ApiOrientationGuide[]>|null>(null)
+  const [loading,setLoading]=useState(true)
+  const [error,setError]=useState('')
+
+  useEffect(()=>{
+    let active=true
+    getInstitutions().then(items=>{
+      if(!active)return
+      setAvailableInstitutions(items)
+      const initial=items.find(item=>item.name===defaultInstitution)||items[0]
+      if(initial)setSelected(initial.name)
+    }).catch(value=>{
+      if(active){
+        setError(value instanceof ApiError?value.message:'Orientation content could not be loaded.')
+        setLoading(false)
+      }
+    })
+    return()=>{active=false}
+  },[])
+
+  const selectedInstitution=availableInstitutions.find(item=>item.name===selected)
+  useEffect(()=>{
+    if(!selectedInstitution){
+      if(availableInstitutions.length===0)return
+      setGuideGroups(null)
+      setLoading(false)
+      return
+    }
+    let active=true
+    setGuideGroups(null)
+    setLoading(true)
+    setError('')
+    getOrientationGuides(selectedInstitution.short_code).then(grouped=>{
+      if(active)setGuideGroups(grouped)
+    }).catch(value=>{
+      if(active){
+        setGuideGroups(null)
+        setError(value instanceof ApiError?value.message:'Orientation content could not be loaded.')
+      }
+    }).finally(()=>{if(active)setLoading(false)})
+    return()=>{active=false}
+  },[selectedInstitution,availableInstitutions.length])
+
+  const options=availableInstitutions.length?availableInstitutions:institutions.map(name=>({id:0,name,short_code:name}))
+  const howTo=guideGroups?.how_to||[]
+  const directoryEntries=guideGroups?.directory_entry||[]
+  const mapNotes=guideGroups?.campus_map_note||[]
+  const hasGuides=howTo.length+directoryEntries.length+mapNotes.length>0
+  return <><Header/><main className="page"><div className="container orientation-grid"><div className="page-intro"><span className="eyebrow">A SMALL HEAD START</span><h1>New here?<br/><i>Start here.</i></h1><p>A friendly guide to the bits no one puts in the prospectus.</p><select value={selected} onChange={e=>{setGuideGroups(null);setLoading(true);setSelected(e.target.value)}} aria-label="Choose your institution">{options.map(item=><option key={item.name}>{item.name}</option>)}</select></div><div aria-live="polite">{loading?<p className="orientation-state">Loading orientation content…</p>:error?<p className="orientation-state form-error" role="alert">{error}</p>:!hasGuides?<p className="orientation-state">Orientation content for {selected} is coming soon.</p>:<div className="guide-stack">{howTo.map((guide,index)=><details key={guide.id} open={index===0}><summary><span>{String(index+1).padStart(2,'0')}</span>{guide.title}<span>⌄</span></summary><p>{guide.content}</p></details>)}</div>}</div></div>{!loading&&!error&&hasGuides&&<><section className="container orientation-section"><div className="section-heading"><div><span className="eyebrow">WHO DO I ASK?</span><h2>Useful campus contacts</h2></div></div><div className="orientation-table">{directoryEntries.map(guide=><div className="orientation-table-row" key={guide.id}><div><h3>{guide.title}</h3><p>{guide.content}</p></div><strong>{guide.contact_info}</strong></div>)}</div></section><section className="container orientation-section"><div className="section-heading"><div><span className="eyebrow">FIND YOUR WAY</span><h2>Campus map notes</h2></div></div><div className="map-notes">{mapNotes.map(guide=><article className="map-note" key={guide.id}><h3>{guide.title}</h3><p>{guide.content}</p></article>)}</div></section></>}<section className="container events"><div className="section-heading"><div><span className="eyebrow">{selected.toUpperCase()}</span><h2>This week&apos;s orientation events</h2></div><Link href="/events/new" className="text-link">Suggest an event →</Link></div><div className="event-row">{events.map(e=><div className="event" key={e.title}><strong>{e.date}</strong><span className="category-pill">{e.type}</span><h3>{e.title}</h3><p>{e.place}</p></div>)}</div></section></main><Footer/></>}
 export function Analytics(){return <><Header/><main className="page"><div className="container page-intro"><span className="eyebrow"><ChartNoAxesColumn/> COMMUNITY PULSE</span><h1>Basic analytics</h1><p>{analyticsNote}</p></div><div className="container analytics-grid">{[[analytics.totalPosts,'Total posts'],[analytics.activeStudents,'Active students'],[analytics.channels,'Channels'],[analytics.pending,'Pending review']].map(([value,label])=><div className="metric-card" key={label}><strong>{value}</strong><span>{label}</span><small>+12% this month</small></div>)}<section className="chart-card wide"><div className="card-heading"><div><span className="eyebrow">WEEKLY ACTIVITY</span><h2>Posts this week</h2></div><span>Mon — Sun</span></div><div className="bar-chart">{analytics.trend.map((height,index)=><div className="bar-wrap" key={index}><div className="bar" style={{height:`${height}%`}}/><small>{['M','T','W','T','F','S','S'][index]}</small></div>)}</div></section><section className="chart-card"><span className="eyebrow">BREAKDOWN</span><h2>Top categories</h2>{analytics.categories.map(([label,value])=><div className="breakdown" key={label}><div><span>{label}</span><b>{value}%</b></div><div className="progress"><i style={{width:`${value}%`}}/></div></div>)}</section><section className="chart-card"><span className="eyebrow">RECENT</span><h2>Recent activity</h2><div className="activity-list">{analytics.recent.map(item=><p key={item}><span/> {item}</p>)}</div></section></div></main><Footer/></>}
 export function Login({admin=false}:{admin?:boolean}){const[error,setError]=useState('');function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const data=new FormData(e.currentTarget);const account=demoAccounts.find(item=>item.username===data.get('username')&&item.password===data.get('password'));if(!account){setError('That username or password did not match a demo account.');return}setDemoSession(account.username);window.location.href=admin?'/admin':'/'}return <><Header/><main className="page"><div className="container auth-card"><span className="eyebrow">{admin?'STAFF ONLY':'WELCOME BACK'}</span><h1>{admin?'Moderation desk':'Log in to CampusConnect'}</h1><p>Use your username and password to log in.</p><form onSubmit={submit}><label>Username<input name="username" required placeholder="e.g. moderator"/></label><label>Password<input name="password" type="password" required placeholder="Your password"/></label>{error&&<p className="form-error">{error}</p>}<button className="button primary" type="submit">Log in <span>→</span></button><small>Demo accounts: moderator / campus2026 or student / student2026</small></form></div></main><Footer/></>}
 export function Admin(){const[tab,setTab]=useState('Pending');const[logged,setLogged]=useState(false);function unlock(e:React.FormEvent<HTMLFormElement>){e.preventDefault();const data=new FormData(e.currentTarget);const account=demoAccounts.find(item=>item.username===data.get('username')&&item.password===data.get('password'));if(account){setDemoSession(account.username);setLogged(true)}}if(!logged)return <Login admin/>;return <><Header/><main className="page admin-page"><div className="container"><div className="admin-title"><div><span className="eyebrow">STAFF ONLY</span><h1>Moderation desk</h1></div><span className="status-dot">● All systems normal</span></div><div className="admin-tabs">{['Pending','Live Posts','Reported Posts','Channels','Analytics'].map(t=><button className={tab===t?'active':''} onClick={()=>setTab(t)} key={t}>{t}</button>)}</div>{tab==='Analytics'?<Analytics/>:<div className="admin-table">{adminPosts.map((p,i)=><div className="admin-row" key={p.id}><span className="row-number">0{i+1}</span><div><b>{p.title}</b><span>{p.author} · {p.category} · contact private</span></div><span className={`status ${i>4?'reported':i===4?'pending':'approved'}`}>{i>4?'Reported':i===4?'Pending':'Approved'}</span><button className="review-button">{tab==='Pending'?'Approve':'Review'} →</button></div>)}</div>}</div></main></>}

@@ -1,4 +1,7 @@
 from django.contrib import admin
+from django.db import connection
+from django.db.utils import OperationalError
+from django.http import JsonResponse
 from django.urls import path
 from core.views import (
     AdminInviteView,
@@ -34,7 +37,19 @@ from core.views import (
     SponsorListingAnalyticsView,
 )
 
+
+def health_check(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except OperationalError:
+        return JsonResponse({"status": "unhealthy", "database": "unavailable"}, status=503)
+    return JsonResponse({"status": "ok", "database": "ok"})
+
+
 urlpatterns = [
+    path("api/health/", health_check, name="health"),
     path("admin/", admin.site.urls),
     path("api/auth/login/", AdminTokenObtainPairView.as_view(), name="auth-login"),
     path("api/auth/refresh/", AdminTokenRefreshView.as_view(), name="auth-refresh"),

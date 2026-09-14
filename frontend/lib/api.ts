@@ -1,7 +1,11 @@
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly fieldErrors: Record<string, string[]> = {},
+  ) {
     super(message)
     this.name = 'ApiError'
   }
@@ -71,3 +75,49 @@ export const getCategories = () => request<ApiCategory[] | Paginated<ApiCategory
 export const getInstitutions = () => request<ApiInstitution[] | Paginated<ApiInstitution>>('/api/institutions/').then(unwrap)
 export const getChannels = () => request<Paginated<ApiChannel> | ApiChannel[]>('/api/channels/').then(unwrap)
 export const getChannel = (slug: string) => request<ApiChannel>(`/api/channels/${encodeURIComponent(slug)}/`)
+
+export type SubmissionResponse = {
+  id?: number
+  status: string
+  channel_created?: boolean
+  channel_name?: string
+}
+
+function normaliseErrors(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== 'object') return {}
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, string[]>>(
+    (errors, [field, messages]) => {
+      const values = Array.isArray(messages) ? messages : [messages]
+      errors[field] = values.filter((message): message is string => typeof message === 'string')
+      return errors
+    },
+    {},
+  )
+}
+
+export async function submitPost(payload: Record<string, string>): Promise<SubmissionResponse> {
+  let response: Response
+  try {
+    response = await fetch(`${API_URL}/api/posts/submit/`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    throw new ApiError(0, 'The CampusConnect backend is unavailable.')
+  }
+
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const fieldErrors = normaliseErrors(body)
+    const message = typeof body?.error === 'string'
+      ? body.error
+      : typeof body?.detail === 'string'
+        ? body.detail
+        : response.status >= 500
+          ? 'The CampusConnect backend is temporarily unavailable.'
+          : 'This CampusConnect request could not be completed.'
+    throw new ApiError(response.status, message, fieldErrors)
+  }
+  return body as SubmissionResponse
+}

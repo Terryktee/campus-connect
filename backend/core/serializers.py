@@ -6,7 +6,15 @@ from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
 from rest_framework import serializers
 
-from .models import Channel, Category, Institution, ModerationAction, Post, Report
+from .models import (
+    Channel,
+    Category,
+    Institution,
+    ModerationAction,
+    OrientationGuide,
+    Post,
+    Report,
+)
 
 
 class CategoryReferenceField(serializers.RelatedField):
@@ -64,6 +72,26 @@ class PublicInstitutionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Institution
         fields = ("id", "name", "short_code", "city", "logo_url", "is_active", "created_at")
+
+
+class PublicOrientationGuideSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrientationGuide
+        fields = ("id", "guide_type", "title", "content", "contact_info", "sort_order")
+
+
+class AdminOrientationGuideSerializer(PublicOrientationGuideSerializer):
+    institution = serializers.PrimaryKeyRelatedField(
+        queryset=Institution.objects.filter(is_active=True)
+    )
+
+    class Meta(PublicOrientationGuideSerializer.Meta):
+        fields = PublicOrientationGuideSerializer.Meta.fields + (
+            "institution",
+            "is_published",
+            "created_at",
+            "updated_at",
+        )
 
 
 class PublicCategorySerializer(serializers.ModelSerializer):

@@ -22,10 +22,13 @@ from core.views import (
     PublicChannelListView,
     PublicFollowView,
     PublicInstitutionListView,
+    PublicOrientationGuideView,
     PublicPostDetailView,
     PublicPostListView,
     PublicPostReportView,
     PublicSubmissionView,
+    AdminOrientationGuideDetailView,
+    AdminOrientationGuideListView,
 )
 
 urlpatterns = [
@@ -45,12 +48,27 @@ urlpatterns = [
     path("api/posts/<int:pk>/report/", PublicPostReportView.as_view(), name="post-report"),
     path("api/categories/", PublicCategoryListView.as_view(), name="category-list"),
     path("api/institutions/", PublicInstitutionListView.as_view(), name="institution-list"),
+    path(
+        "api/orientation/<str:institution_short_code>/",
+        PublicOrientationGuideView.as_view(),
+        name="orientation-guide-list",
+    ),
     path("api/channels/", PublicChannelListView.as_view(), name="channel-list"),
     path("api/channels/claim/<uuid:token>/", PublicChannelClaimView.as_view(), name="channel-claim"),
     path("api/channels/claim/<uuid:token>/confirm/", PublicChannelClaimView.as_view(), name="channel-claim-confirm"),
     path("api/channels/<slug:slug>/", PublicChannelDetailView.as_view(), name="channel-detail"),
     path("api/follow/", PublicFollowView.as_view(), name="follow"),
     path("api/admin/posts/", AdminPostListView.as_view(), name="admin-post-list"),
+    path(
+        "api/admin/orientation/",
+        AdminOrientationGuideListView.as_view(),
+        name="admin-orientation-list",
+    ),
+    path(
+        "api/admin/orientation/<int:pk>/",
+        AdminOrientationGuideDetailView.as_view(),
+        name="admin-orientation-detail",
+    ),
     path("api/admin/posts/<int:pk>/approve/", AdminApprovePostView.as_view(), name="admin-post-approve"),
     path("api/admin/posts/<int:pk>/reject/", AdminRejectPostView.as_view(), name="admin-post-reject"),
     path("api/admin/posts/<int:pk>/take_down/", AdminTakeDownPostView.as_view(), name="admin-post-take-down"),

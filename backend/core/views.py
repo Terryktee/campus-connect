@@ -12,7 +12,14 @@ from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django_ratelimit.decorators import ratelimit
 from rest_framework import serializers, status
-from rest_framework.generics import CreateAPIView, ListAPIView, RetrieveAPIView
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.generics import (
+    CreateAPIView,
+    ListAPIView,
+    ListCreateAPIView,
+    RetrieveAPIView,
+    RetrieveUpdateDestroyAPIView,
+)
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -32,6 +39,7 @@ from .models import (
     Channel,
     Follow,
     NotificationQueue,
+    OrientationGuide,
 )
 from .permissions import IsScopedAdmin, IsSuperAdmin
 from .tasks import send_admin_invite_email, send_channel_claim_email
@@ -39,11 +47,13 @@ from .serializers import (
     AdminPostSerializer,
     AdminReportSerializer,
     AdminChannelSerializer,
+    AdminOrientationGuideSerializer,
     PublicCategorySerializer,
     PublicChannelDetailSerializer,
     PublicChannelSerializer,
     FollowSerializer,
     PublicInstitutionSerializer,
+    PublicOrientationGuideSerializer,
     PublicPostSerializer,
     PublicReportSerializer,
     PublicSubmissionSerializer,
@@ -90,6 +100,71 @@ class AdminFailedNotificationListView(ListAPIView):
         return NotificationQueue.objects.filter(
             status=NotificationQueue.Status.FAILED
         ).select_related("post").order_by("-created_at")
+
+
+class PublicOrientationGuideView(APIView):
+    authentication_classes = ()
+    permission_classes = ()
+
+    def get(self, request, institution_short_code):
+        institution = get_object_or_404(
+            Institution, short_code=institution_short_code, is_active=True
+        )
+        guides = OrientationGuide.objects.filter(
+            institution=institution, is_published=True
+        ).order_by("sort_order", "id")
+        grouped = {guide_type: [] for guide_type, _ in OrientationGuide.GuideType.choices}
+        for guide in guides:
+            grouped[guide.guide_type].append(
+                PublicOrientationGuideSerializer(guide).data
+            )
+        return Response(grouped)
+
+
+class AdminOrientationGuideListView(InstitutionScopedQuerysetMixin, ListCreateAPIView):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsScopedAdmin,)
+    serializer_class = AdminOrientationGuideSerializer
+    queryset = OrientationGuide.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("institution").order_by(
+            "sort_order", "id"
+        )
+
+    def perform_create(self, serializer):
+        institution = serializer.validated_data["institution"]
+        profile = self.request.admin_profile
+        if (
+            profile.role == Admin.Role.MODERATOR
+            and institution.pk != profile.institution_id
+        ):
+            raise PermissionDenied("You can only manage guides for your institution.")
+        serializer.save()
+
+
+class AdminOrientationGuideDetailView(
+    InstitutionScopedQuerysetMixin, RetrieveUpdateDestroyAPIView
+):
+    authentication_classes = (AdminJWTAuthentication,)
+    permission_classes = (IsScopedAdmin,)
+    serializer_class = AdminOrientationGuideSerializer
+    queryset = OrientationGuide.objects.all()
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("institution")
+
+    def perform_update(self, serializer):
+        institution = serializer.validated_data.get(
+            "institution", serializer.instance.institution
+        )
+        profile = self.request.admin_profile
+        if (
+            profile.role == Admin.Role.MODERATOR
+            and institution.pk != profile.institution_id
+        ):
+            raise PermissionDenied("You can only manage guides for your institution.")
+        serializer.save()
 
 
 class AdminInviteSerializer(serializers.Serializer):

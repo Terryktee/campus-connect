@@ -1,0 +1,109 @@
+from django.contrib import admin
+from django.db import connection
+from django.db.utils import OperationalError
+from django.http import JsonResponse
+from django.urls import path
+from core.views import (
+    AdminInviteView,
+    AdminMeView,
+    AdminTokenObtainPairView,
+    AdminTokenRefreshView,
+    AdminModerationActionListView,
+    AdminApprovePostView,
+    AdminChannelActionView,
+    AdminFeaturePostView,
+    AdminFailedNotificationListView,
+    AdminPostListView,
+    AdminRejectPostView,
+    AdminReportActionView,
+    AdminReportListView,
+    AdminTakeDownPostView,
+    AdminUnfeaturePostView,
+    PublicCategoryListView,
+    PublicChannelClaimView,
+    PublicChannelDetailView,
+    PublicChannelListView,
+    PublicFollowView,
+    PublicInstitutionListView,
+    PublicOrientationGuideView,
+    PublicPostDetailView,
+    PublicPostListView,
+    PublicPostReportView,
+    PublicSubmissionView,
+    AdminOrientationGuideDetailView,
+    AdminOrientationGuideListView,
+    AdminSponsoredListingListView,
+    AdminSponsoredListingDetailView,
+    SponsorListingAnalyticsView,
+)
+
+
+def health_check(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except OperationalError:
+        response = JsonResponse(
+            {"status": "unhealthy", "database": "unavailable"},
+            status=503,
+        )
+    else:
+        response = JsonResponse({"status": "ok", "database": "ok"})
+
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+urlpatterns = [
+    path("api/health/", health_check, name="health"),
+    path("admin/", admin.site.urls),
+    path("api/auth/login/", AdminTokenObtainPairView.as_view(), name="auth-login"),
+    path("api/auth/refresh/", AdminTokenRefreshView.as_view(), name="auth-refresh"),
+    path("api/admin/me/", AdminMeView.as_view(), name="admin-me"),
+    path("api/admin/invite/", AdminInviteView.as_view(), name="admin-invite"),
+    path(
+        "api/admin/notifications/failed/",
+        AdminFailedNotificationListView.as_view(),
+        name="admin-notifications-failed",
+    ),
+    path("api/posts/submit/", PublicSubmissionView.as_view(), name="post-submit"),
+    path("api/posts/", PublicPostListView.as_view(), name="post-list"),
+    path("api/posts/<int:pk>/", PublicPostDetailView.as_view(), name="post-detail"),
+    path("api/posts/<int:pk>/report/", PublicPostReportView.as_view(), name="post-report"),
+    path("api/categories/", PublicCategoryListView.as_view(), name="category-list"),
+    path("api/institutions/", PublicInstitutionListView.as_view(), name="institution-list"),
+    path(
+        "api/orientation/<str:institution_short_code>/",
+        PublicOrientationGuideView.as_view(),
+        name="orientation-guide-list",
+    ),
+    path("api/channels/", PublicChannelListView.as_view(), name="channel-list"),
+    path("api/channels/claim/<uuid:token>/", PublicChannelClaimView.as_view(), name="channel-claim"),
+    path("api/channels/claim/<uuid:token>/confirm/", PublicChannelClaimView.as_view(), name="channel-claim-confirm"),
+    path("api/channels/<slug:slug>/", PublicChannelDetailView.as_view(), name="channel-detail"),
+    path("api/follow/", PublicFollowView.as_view(), name="follow"),
+    path("api/admin/posts/", AdminPostListView.as_view(), name="admin-post-list"),
+    path(
+        "api/admin/orientation/",
+        AdminOrientationGuideListView.as_view(),
+        name="admin-orientation-list",
+    ),
+    path(
+        "api/admin/orientation/<int:pk>/",
+        AdminOrientationGuideDetailView.as_view(),
+        name="admin-orientation-detail",
+    ),
+    path("api/admin/posts/<int:pk>/approve/", AdminApprovePostView.as_view(), name="admin-post-approve"),
+    path("api/admin/posts/<int:pk>/reject/", AdminRejectPostView.as_view(), name="admin-post-reject"),
+    path("api/admin/posts/<int:pk>/take_down/", AdminTakeDownPostView.as_view(), name="admin-post-take-down"),
+    path("api/admin/posts/<int:pk>/feature/", AdminFeaturePostView.as_view(), name="admin-post-feature"),
+    path("api/admin/posts/<int:pk>/unfeature/", AdminUnfeaturePostView.as_view(), name="admin-post-unfeature"),
+    path("api/admin/channels/<int:pk>/<str:action>/", AdminChannelActionView.as_view(), name="admin-channel-action"),
+    path("api/admin/reports/", AdminReportListView.as_view(), name="admin-report-list"),
+    path("api/admin/reports/<int:pk>/<str:action>/", AdminReportActionView.as_view(), name="admin-report-action"),
+    path("api/admin/moderation-actions/", AdminModerationActionListView.as_view(), name="admin-moderation-action-list"),
+    path("api/admin/sponsored-listings/", AdminSponsoredListingListView.as_view(), name="admin-sponsored-listing-list"),
+    path("api/admin/sponsored-listings/<int:pk>/", AdminSponsoredListingDetailView.as_view(), name="admin-sponsored-listing-detail"),
+    path("api/sponsor/my-listing/<int:pk>/", SponsorListingAnalyticsView.as_view(), name="sponsor-listing-analytics"),
+]

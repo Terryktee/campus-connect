@@ -1,0 +1,4 @@
+import { Login } from "@/components/campus-app";
+export default function Page() {
+  return <Login />;
+}

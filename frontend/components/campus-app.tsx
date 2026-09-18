@@ -1,0 +1,1164 @@
+"use client";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import {
+  Bell,
+  CalendarDays,
+  ChartNoAxesColumn,
+  ImagePlus,
+  Menu,
+  MessageCircle,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+  X,
+} from "lucide-react";
+import {
+  ApiError,
+  getInstitutions,
+  getOrientationGuides,
+  submitPost,
+  type ApiInstitution,
+  type ApiOrientationGuide,
+} from "@/lib/api";
+import {
+  acceptedImageTypes,
+  adminPosts,
+  analytics,
+  analyticsNote,
+  channels,
+  categories,
+  defaultCategory,
+  defaultEventType,
+  defaultInstitution,
+  demoAccounts,
+  eventTypes,
+  events,
+  footerLinks,
+  guides,
+  imageNote,
+  institutions,
+  linkNote,
+  maxImageSize,
+  maxUploadImages,
+  posts,
+  profiles,
+  setDemoSession,
+  type Post,
+  type Profile,
+} from "@/lib/data";
+
+export function Header() {
+  const [open, setOpen] = useState(false);
+  return (
+    <header className="site-header">
+      <div className="container nav">
+        <Link href="/" className="brand">
+          <span className="brand-mark">C</span>
+          <span>
+            CampusConnect <em>ZW</em>
+          </span>
+        </Link>
+        <nav className={open ? "nav-links open" : "nav-links"}>
+          <Link href="/">Explore</Link>
+          <Link href="/channels">Channels</Link>
+          <Link href="/profiles">Profiles</Link>
+          <Link href="/events">Events</Link>
+          <Link href="/orientation">Orientation Hub</Link>
+          <Link href="/submit" className="nav-cta">
+            Submit a Post <span>+</span>
+          </Link>
+        </nav>
+        <div className="nav-actions">
+          <Link
+            href="/analytics"
+            className="icon-button"
+            aria-label="Analytics"
+          >
+            <ChartNoAxesColumn />
+          </Link>
+          <button className="icon-button" aria-label="Search">
+            <Search />
+          </button>
+          <button className="icon-button" aria-label="Notifications">
+            <Bell />
+          </button>
+          <button
+            className="menu-button"
+            onClick={() => setOpen(!open)}
+            aria-label="Menu"
+          >
+            {open ? <X /> : <Menu />}
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+export function Footer() {
+  return (
+    <footer>
+      <div className="container footer-grid">
+        <div>
+          <Link href="/" className="brand">
+            <span className="brand-mark">C</span>
+            <span>
+              CampusConnect <em>ZW</em>
+            </span>
+          </Link>
+          <p className="muted footer-copy">
+            The student noticeboard for Zimbabwe.
+            <br />
+            Find your people. Share what matters.
+          </p>
+        </div>
+        {Object.entries(footerLinks).map(([title, links]) => (
+          <div key={title}>
+            <h4>{title}</h4>
+            {links.map(([label, href]) => (
+              <Link href={href} key={href}>
+                {label}
+              </Link>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="container footer-bottom">
+        <span>© 2026 CampusConnect ZW</span>
+        <span>Made for students, by students.</span>
+      </div>
+    </footer>
+  );
+}
+export function PostCard({
+  post,
+  featured = false,
+}: {
+  post: Post;
+  featured?: boolean;
+}) {
+  return (
+    <article className={featured ? "post-card featured" : "post-card"}>
+      <div className="post-top">
+        <span className="category-pill">{post.category}</span>
+        <span className="post-time">{post.time}</span>
+      </div>
+      <Link href={`/post/${post.id}`}>
+        <h3>{post.title}</h3>
+      </Link>
+      <p>{post.excerpt}</p>
+      {post.images?.length ? (
+        <div className="post-image-count">
+          <ImagePlus /> {post.images.length} image
+          {post.images.length > 1 ? "s" : ""}
+        </div>
+      ) : null}
+      <div className="post-meta">
+        <span className="avatar">{post.author.charAt(0)}</span>
+        <span>{post.channel || post.author}</span>
+        <span className="meta-spacer" />
+        <MessageCircle />
+        <span>{post.comments}</span>
+      </div>
+    </article>
+  );
+}
+export function Home() {
+  const [active, setActive] = useState("All posts");
+  const filtered =
+    active === "All posts" ? posts : posts.filter((p) => p.category === active);
+  return (
+    <>
+      <Header />
+      <main>
+        <section className="hero">
+          <div className="container hero-grid">
+            <div>
+              <span className="eyebrow">
+                <Sparkles /> THE STUDENT NOTICEBOARD
+              </span>
+              <h1>
+                What&apos;s happening
+                <br />
+                <i>on campus?</i>
+              </h1>
+              <p className="hero-copy">
+                University news, opportunities, and tech for Zimbabwean
+                students. Find your people, share what matters and make campus
+                life a little easier.
+              </p>
+              <div className="hero-actions">
+                <Link href="/submit" className="button primary">
+                  Submit a Post <span>→</span>
+                </Link>
+                <Link href="/orientation" className="button ghost">
+                  New here? Start here
+                </Link>
+              </div>
+              <div className="trust">
+                <div className="avatar-stack">
+                  <span>R</span>
+                  <span>T</span>
+                  <span>M</span>
+                  <span>+</span>
+                </div>
+                <span>
+                  Trusted by <b>8,500+</b> students
+                </span>
+              </div>
+            </div>
+            <div className="hero-note">
+              <div className="note-tape">TODAY ON CAMPUS</div>
+              <div className="note-pin">●</div>
+              <p className="note-quote">
+                “The best part of university is finding the people who make it
+                feel like home.”
+              </p>
+              <div className="note-line" />
+              <span className="note-small">
+                A little reminder from the community
+              </span>
+            </div>
+          </div>
+        </section>
+        <section className="container feed-section">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">FROM THE COMMUNITY</span>
+              <h2>Fresh on the noticeboard</h2>
+            </div>
+            <Link href="/channels" className="text-link">
+              Explore channels →
+            </Link>
+          </div>
+          <div className="category-row">
+            {categories.map((c) => (
+              <button
+                key={c}
+                className={active === c ? "category active" : "category"}
+                onClick={() => setActive(c)}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <div className="post-grid">
+            {filtered.map((p, i) => (
+              <PostCard
+                key={p.id}
+                post={p}
+                featured={i === 0 && active === "All posts"}
+              />
+            ))}
+          </div>
+        </section>
+        <section className="container invite">
+          <div>
+            <span className="eyebrow">YOUR CAMPUS, YOUR VOICE</span>
+            <h2>Have something useful to share?</h2>
+            <p>
+              Submissions are reviewed before they go live. No account needed.
+            </p>
+          </div>
+          <Link href="/submit" className="button dark">
+            Share with campus <span>→</span>
+          </Link>
+        </section>
+      </main>
+      <Footer />
+    </>
+  );
+}
+export function Submit() {
+  const [sent, setSent] = useState(false);
+  const [images, setImages] = useState<string[]>([]);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
+  const [channelNote, setChannelNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  function onFiles(files: FileList | null) {
+    if (!files) return;
+    const selected = Array.from(files);
+    if (
+      selected.length > maxUploadImages ||
+      selected.some(
+        (file) => file.size > maxImageSize || !file.type.startsWith("image/"),
+      )
+    ) {
+      setError("Choose up to six image files under 5MB each.");
+      return;
+    }
+    setError("");
+    Promise.all(
+      selected.map(
+        (file) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.readAsDataURL(file);
+          }),
+      ),
+    ).then(setImages);
+  }
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError("");
+    setFieldErrors({});
+    setSubmitting(true);
+    const data = new FormData(e.currentTarget);
+    const channelName = String(data.get("channel_name") || "").trim();
+    try {
+      const response = await submitPost({
+        title: String(data.get("title") || ""),
+        content: String(data.get("content") || ""),
+        category: String(data.get("category") || ""),
+        institution: String(data.get("institution") || ""),
+        channel_name: channelName,
+        submitter_name: String(data.get("submitter_name") || ""),
+        submitter_contact: String(data.get("submitter_contact") || ""),
+        link_url: String(data.get("link_url") || ""),
+        image_url: "",
+        submitter_institution: String(data.get("submitter_institution") || ""),
+        website: String(data.get("website") || ""),
+      });
+      if (response.channel_created && response.channel_name)
+        setChannelNote(response.channel_name);
+      setSent(true);
+    } catch (value) {
+      if (value instanceof ApiError) {
+        setFieldErrors(value.fieldErrors);
+        setError(
+          value.status === 429
+            ? value.message
+            : value.status === 0
+              ? value.message
+              : "",
+        );
+      } else setError("The submission could not be sent. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+  const fieldError = (name: string) => fieldErrors[name]?.join(" ") || "";
+  const fieldProps = (name: string) => ({
+    "aria-invalid": Boolean(fieldError(name)),
+    "aria-describedby": fieldError(name) ? `${name}-error` : undefined,
+  });
+  return (
+    <>
+      <Header />
+      <main className="page">
+        <div className="container submit-layout">
+          <div className="page-intro">
+            <span className="eyebrow">ADD TO THE CONVERSATION</span>
+            <h1>
+              Share something
+              <br />
+              <i>with campus.</i>
+            </h1>
+            <p>Useful, kind and relevant. That&apos;s the whole brief.</p>
+            <div className="submit-aside">
+              <ShieldCheck />
+              <span>
+                Every post is reviewed before it goes live. Private contact
+                details stay private.
+              </span>
+            </div>
+          </div>
+          <div className="form-card">
+            {sent ? (
+              <div className="success">
+                <div className="success-mark">✓</div>
+                <h2>Thanks — your post is in review.</h2>
+                <p>It will appear once approved, usually within 24 hours.</p>
+                {channelNote && (
+                  <p>
+                    We&apos;ve also started a channel called &apos;{channelNote}
+                    &apos; — check your email/phone for a link to claim it.
+                  </p>
+                )}
+                <Link href="/" className="button primary">
+                  Back to explore
+                </Link>
+              </div>
+            ) : (
+              <form onSubmit={submit} noValidate>
+                <label>
+                  Title *
+                  <input
+                    name="title"
+                    required
+                    placeholder="Keep it short and clear"
+                    {...fieldProps("title")}
+                  />
+                  {fieldError("title") && (
+                    <small className="form-error" id="title-error">
+                      {fieldError("title")}
+                    </small>
+                  )}
+                </label>
+                <div className="form-two">
+                  <label>
+                    Institution *
+                    <select
+                      name="institution"
+                      required
+                      defaultValue={defaultInstitution}
+                      {...fieldProps("institution")}
+                    >
+                      {institutions.map((item) => (
+                        <option key={item}>{item}</option>
+                      ))}
+                    </select>
+                    {fieldError("institution") && (
+                      <small className="form-error" id="institution-error">
+                        {fieldError("institution")}
+                      </small>
+                    )}
+                  </label>
+                  <label>
+                    Channel name (optional)
+                    <input
+                      name="channel_name"
+                      placeholder="e.g. Women in STEM Zimbabwe"
+                      {...fieldProps("channel_name")}
+                    />
+                    {fieldError("channel_name") && (
+                      <small className="form-error" id="channel_name-error">
+                        {fieldError("channel_name")}
+                      </small>
+                    )}
+                  </label>
+                </div>
+                <label>
+                  Category *
+                  <select
+                    name="category"
+                    required
+                    defaultValue={defaultCategory}
+                    {...fieldProps("category")}
+                  >
+                    {categories.slice(1).map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                  {fieldError("category") && (
+                    <small className="form-error" id="category-error">
+                      {fieldError("category")}
+                    </small>
+                  )}
+                </label>
+                <label>
+                  Content *
+                  <textarea
+                    name="content"
+                    required
+                    placeholder="Add the useful details..."
+                    rows={6}
+                    {...fieldProps("content")}
+                  />
+                  {fieldError("content") && (
+                    <small className="form-error" id="content-error">
+                      {fieldError("content")}
+                    </small>
+                  )}
+                </label>
+                <label>
+                  Post as username or name *
+                  <input
+                    name="submitter_name"
+                    required
+                    placeholder="e.g. nyasha.codes or Nyasha Moyo"
+                    {...fieldProps("submitter_name")}
+                  />
+                  <small>
+                    Choose the username or name you want students to see.
+                  </small>
+                  {fieldError("submitter_name") && (
+                    <small className="form-error" id="submitter_name-error">
+                      {fieldError("submitter_name")}
+                    </small>
+                  )}
+                </label>
+                <label>
+                  Optional external link
+                  <input
+                    name="link_url"
+                    type="url"
+                    placeholder="https://..."
+                    {...fieldProps("link_url")}
+                  />
+                  <small>{linkNote}</small>
+                  {fieldError("link_url") && (
+                    <small className="form-error" id="link_url-error">
+                      {fieldError("link_url")}
+                    </small>
+                  )}
+                </label>
+                <label>
+                  Images{" "}
+                  <input
+                    type="file"
+                    accept={acceptedImageTypes}
+                    multiple
+                    onChange={(e) => onFiles(e.target.files)}
+                  />
+                  <small>{imageNote}</small>
+                </label>
+                {error && (
+                  <p className="form-error" role="alert">
+                    {error}
+                  </p>
+                )}
+                {images.length > 0 && (
+                  <div className="upload-grid">
+                    {images.map((src, index) => (
+                      <div className="upload-preview" key={src}>
+                        <img src={src} alt={`Upload preview ${index + 1}`} />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setImages((items) =>
+                              items.filter((_, i) => i !== index),
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label>
+                  Contact email or phone *
+                  <input
+                    name="submitter_contact"
+                    required
+                    placeholder="Private contact details"
+                    {...fieldProps("submitter_contact")}
+                  />
+                  <small>
+                    Only used if we need to reach you about this post, never
+                    shown publicly.
+                  </small>
+                  {fieldError("submitter_contact") && (
+                    <small className="form-error" id="submitter_contact-error">
+                      {fieldError("submitter_contact")}
+                    </small>
+                  )}
+                </label>
+                <label className="sr-only">
+                  Website
+                  <input name="website" tabIndex={-1} autoComplete="off" />
+                </label>
+                <button
+                  className="button primary"
+                  type="submit"
+                  disabled={submitting}
+                >
+                  {submitting ? "Sending…" : "Submit for review"}{" "}
+                  {!submitting && <span>→</span>}
+                </button>
+                <small>
+                  By posting, you agree to our{" "}
+                  <Link href="/guidelines">posting guidelines</Link>.
+                </small>
+              </form>
+            )}
+          </div>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
+export function Profiles() {
+  const [query, setQuery] = useState("");
+  const filtered = profiles.filter((profile) =>
+    `${profile.name} ${profile.username} ${profile.institution}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  return (
+    <>
+      <Header />
+      <main className="page">
+        <div className="container page-intro">
+          <span className="eyebrow">
+            <UserRound /> FIND YOUR PEOPLE
+          </span>
+          <h1>Student profiles</h1>
+          <p>
+            Discover the students, builders and community organisers behind the
+            noticeboard.
+          </p>
+          <div className="search-field">
+            <Search />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, username or institution"
+            />
+          </div>
+        </div>
+        <div className="container profile-grid">
+          {filtered.map((profile) => (
+            <ProfileCard key={profile.username} profile={profile} />
+          ))}
+          <Link href="/profiles/new" className="profile-card profile-add">
+            <span>+</span>
+            <h3>Create a profile</h3>
+            <p>
+              Tell the campus community who you are and what you are working on.
+            </p>
+          </Link>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
+export function ProfileCard({ profile }: { profile: Profile }) {
+  return (
+    <Link
+      href={`/profiles/${profile.username}`}
+      className={`profile-card ${profile.accent}`}
+    >
+      <div className="profile-avatar">
+        {profile.name
+          .split(" ")
+          .map((x) => x[0])
+          .join("")
+          .slice(0, 2)}
+      </div>
+      <span className="profile-handle">@{profile.username}</span>
+      <h3>{profile.name}</h3>
+      <p>
+        {profile.programme} · {profile.institution}
+      </p>
+      <div className="tag-row">
+        {profile.tags.map((tag) => (
+          <span key={tag}>{tag}</span>
+        ))}
+      </div>
+      <div className="profile-description">{profile.description}</div>
+    </Link>
+  );
+}
+export function Events() {
+  return (
+    <>
+      <Header />
+      <main className="page">
+        <div className="container page-intro">
+          <span className="eyebrow">
+            <CalendarDays /> WHAT&apos;S ON
+          </span>
+          <h1>Campus events</h1>
+          <p>
+            Find workshops, socials and useful sessions happening across the
+            student community.
+          </p>
+          <Link href="/events/new" className="button primary">
+            Add an event <span>+</span>
+          </Link>
+        </div>
+        <div className="container event-grid">
+          {events.map((event) => (
+            <article className="event-card" key={event.id}>
+              <div className="event-date">
+                <strong>{event.date.split(" ")[0]}</strong>
+                <span>{event.date.split(" ")[1]}</span>
+              </div>
+              <div>
+                <span className="category-pill">{event.type}</span>
+                <h3>{event.title}</h3>
+                <p>{event.description}</p>
+                <small>
+                  {event.place} · Hosted by {event.host}
+                </small>
+              </div>
+            </article>
+          ))}
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
+export function Channels() {
+  const [followed, setFollowed] = useState<string[]>([]);
+  return (
+    <>
+      <Header />
+      <main className="page">
+        <div className="container page-intro">
+          <span className="eyebrow">FIND YOUR PEOPLE</span>
+          <h1>Campus channels</h1>
+          <p>
+            Join focused communities with their own description, conversations
+            and opportunities.
+          </p>
+          <Link href="/channels/new" className="button primary">
+            Add a channel <span>+</span>
+          </Link>
+        </div>
+        <div className="container channel-grid">
+          {channels.map((c) => (
+            <div className={`channel-card ${c.color}`} key={c.slug}>
+              <Link href={`/c/${c.slug}`} className="channel-badge">
+                {c.short}
+              </Link>
+              <div>
+                <Link href={`/c/${c.slug}`}>
+                  <h3>{c.name}</h3>
+                </Link>
+                <p>{c.description}</p>
+                <span>
+                  {c.members} followers · {c.focus}
+                </span>
+                <button
+                  className="button small"
+                  onClick={() =>
+                    setFollowed((f) =>
+                      f.includes(c.slug)
+                        ? f.filter((x) => x !== c.slug)
+                        : [...f, c.slug],
+                    )
+                  }
+                >
+                  {followed.includes(c.slug) ? "Following" : "Follow"}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
+export function Orientation() {
+  const [selected, setSelected] = useState(defaultInstitution);
+  const [availableInstitutions, setAvailableInstitutions] = useState<
+    ApiInstitution[]
+  >([]);
+  const [guideGroups, setGuideGroups] = useState<Record<
+    ApiOrientationGuide["guide_type"],
+    ApiOrientationGuide[]
+  > | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getInstitutions()
+      .then((items) => {
+        if (!active) return;
+        setAvailableInstitutions(items);
+        const initial =
+          items.find((item) => item.name === defaultInstitution) || items[0];
+        if (initial) setSelected(initial.name);
+      })
+      .catch((value) => {
+        if (active) {
+          setError(
+            value instanceof ApiError
+              ? value.message
+              : "Orientation content could not be loaded.",
+          );
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const selectedInstitution = availableInstitutions.find(
+    (item) => item.name === selected,
+  );
+  useEffect(() => {
+    if (!selectedInstitution) {
+      if (availableInstitutions.length === 0) return;
+      setGuideGroups(null);
+      setLoading(false);
+      return;
+    }
+    let active = true;
+    setGuideGroups(null);
+    setLoading(true);
+    setError("");
+    getOrientationGuides(selectedInstitution.short_code)
+      .then((grouped) => {
+        if (active) setGuideGroups(grouped);
+      })
+      .catch((value) => {
+        if (active) {
+          setGuideGroups(null);
+          setError(
+            value instanceof ApiError
+              ? value.message
+              : "Orientation content could not be loaded.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [selectedInstitution, availableInstitutions.length]);
+
+  const options = availableInstitutions.length
+    ? availableInstitutions
+    : institutions.map((name) => ({ id: 0, name, short_code: name }));
+  const howTo = guideGroups?.how_to || [];
+  const directoryEntries = guideGroups?.directory_entry || [];
+  const mapNotes = guideGroups?.campus_map_note || [];
+  const hasGuides =
+    howTo.length + directoryEntries.length + mapNotes.length > 0;
+  return (
+    <>
+      <Header />
+      <main className="page">
+        <div className="container orientation-grid">
+          <div className="page-intro">
+            <span className="eyebrow">A SMALL HEAD START</span>
+            <h1>
+              New here?
+              <br />
+              <i>Start here.</i>
+            </h1>
+            <p>A friendly guide to the bits no one puts in the prospectus.</p>
+            <select
+              value={selected}
+              onChange={(e) => {
+                setGuideGroups(null);
+                setLoading(true);
+                setSelected(e.target.value);
+              }}
+              aria-label="Choose your institution"
+            >
+              {options.map((item) => (
+                <option key={item.name}>{item.name}</option>
+              ))}
+            </select>
+          </div>
+          <div aria-live="polite">
+            {loading ? (
+              <p className="orientation-state">Loading orientation content…</p>
+            ) : error ? (
+              <p className="orientation-state form-error" role="alert">
+                {error}
+              </p>
+            ) : !hasGuides ? (
+              <p className="orientation-state">
+                Orientation content for {selected} is coming soon.
+              </p>
+            ) : (
+              <div className="guide-stack">
+                {howTo.map((guide, index) => (
+                  <details key={guide.id} open={index === 0}>
+                    <summary>
+                      <span>{String(index + 1).padStart(2, "0")}</span>
+                      {guide.title}
+                      <span>⌄</span>
+                    </summary>
+                    <p>{guide.content}</p>
+                  </details>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        {!loading && !error && hasGuides && (
+          <>
+            <section className="container orientation-section">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">WHO DO I ASK?</span>
+                  <h2>Useful campus contacts</h2>
+                </div>
+              </div>
+              <div className="orientation-table">
+                {directoryEntries.map((guide) => (
+                  <div className="orientation-table-row" key={guide.id}>
+                    <div>
+                      <h3>{guide.title}</h3>
+                      <p>{guide.content}</p>
+                    </div>
+                    <strong>{guide.contact_info}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <section className="container orientation-section">
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">FIND YOUR WAY</span>
+                  <h2>Campus map notes</h2>
+                </div>
+              </div>
+              <div className="map-notes">
+                {mapNotes.map((guide) => (
+                  <article className="map-note" key={guide.id}>
+                    <h3>{guide.title}</h3>
+                    <p>{guide.content}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+        <section className="container events">
+          <div className="section-heading">
+            <div>
+              <span className="eyebrow">{selected.toUpperCase()}</span>
+              <h2>This week&apos;s orientation events</h2>
+            </div>
+            <Link href="/events/new" className="text-link">
+              Suggest an event →
+            </Link>
+          </div>
+          <div className="event-row">
+            {events.map((e) => (
+              <div className="event" key={e.title}>
+                <strong>{e.date}</strong>
+                <span className="category-pill">{e.type}</span>
+                <h3>{e.title}</h3>
+                <p>{e.place}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </>
+  );
+}
+export function Analytics() {
+  return (
+    <>
+      <Header />
+      <main className="page">
+        <div className="container page-intro">
+          <span className="eyebrow">
+            <ChartNoAxesColumn /> COMMUNITY PULSE
+          </span>
+          <h1>Basic analytics</h1>
+          <p>{analyticsNote}</p>
+        </div>
+        <div className="container analytics-grid">
+          {[
+            [analytics.totalPosts, "Total posts"],
+            [analytics.activeStudents, "Active students"],
+            [analytics.channels, "Channels"],
+            [analytics.pending, "Pending review"],
+          ].map(([value, label]) => (
+            <div className="metric-card" key={label}>
+              <strong>{value}</strong>
+              <span>{label}</span>
+              <small>+12% this month</small>
+            </div>
+          ))}
+          <section className="chart-card wide">
+            <div className="card-heading">
+              <div>
+                <span className="eyebrow">WEEKLY ACTIVITY</span>
+                <h2>Posts this week</h2>
+              </div>
+              <span>Mon — Sun</span>
+            </div>
+            <div className="bar-chart">
+              {analytics.trend.map((height, index) => (
+                <div className="bar-wrap" key={index}>
+                  <div className="bar" style={{ height: `${height}%` }} />
+                  <small>{["M", "T", "W", "T", "F", "S", "S"][index]}</small>
+                </div>
+              ))}
+            </div>
+          </section>
+          <section className="chart-card">
+            <span className="eyebrow">BREAKDOWN</span>
+            <h2>Top categories</h2>
+            {analytics.categories.map(([label, value]) => (
+              <div className="breakdown" key={label}>
+                <div>
+                  <span>{label}</span>
+                  <b>{value}%</b>
+                </div>
+                <div className="progress">
+                  <i style={{ width: `${value}%` }} />
+                </div>
+              </div>
+            ))}
+          </section>
+          <section className="chart-card">
+            <span className="eyebrow">RECENT</span>
+            <h2>Recent activity</h2>
+            <div className="activity-list">
+              {analytics.recent.map((item) => (
+                <p key={item}>
+                  <span /> {item}
+                </p>
+              ))}
+            </div>
+          </section>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
+export function Login({ admin = false }: { admin?: boolean }) {
+  const [error, setError] = useState("");
+  function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    const account = demoAccounts.find(
+      (item) =>
+        item.username === data.get("username") &&
+        item.password === data.get("password"),
+    );
+    if (!account) {
+      setError("That username or password did not match a demo account.");
+      return;
+    }
+    setDemoSession(account.username);
+    window.location.href = admin ? "/admin" : "/";
+  }
+  return (
+    <>
+      <Header />
+      <main className="page">
+        <div className="container auth-card">
+          <span className="eyebrow">
+            {admin ? "STAFF ONLY" : "WELCOME BACK"}
+          </span>
+          <h1>{admin ? "Moderation desk" : "Log in to CampusConnect"}</h1>
+          <p>Use your username and password to log in.</p>
+          <form onSubmit={submit}>
+            <label>
+              Username
+              <input name="username" required placeholder="e.g. moderator" />
+            </label>
+            <label>
+              Password
+              <input
+                name="password"
+                type="password"
+                required
+                placeholder="Your password"
+              />
+            </label>
+            {error && <p className="form-error">{error}</p>}
+            <button className="button primary" type="submit">
+              Log in <span>→</span>
+            </button>
+            <small>
+              Demo accounts: moderator / campus2026 or student / student2026
+            </small>
+          </form>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}
+export function Admin() {
+  const [tab, setTab] = useState("Pending");
+  const [logged, setLogged] = useState(false);
+  function unlock(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    const account = demoAccounts.find(
+      (item) =>
+        item.username === data.get("username") &&
+        item.password === data.get("password"),
+    );
+    if (account) {
+      setDemoSession(account.username);
+      setLogged(true);
+    }
+  }
+  if (!logged) return <Login admin />;
+  return (
+    <>
+      <Header />
+      <main className="page admin-page">
+        <div className="container">
+          <div className="admin-title">
+            <div>
+              <span className="eyebrow">STAFF ONLY</span>
+              <h1>Moderation desk</h1>
+            </div>
+            <span className="status-dot">● All systems normal</span>
+          </div>
+          <div className="admin-tabs">
+            {[
+              "Pending",
+              "Live Posts",
+              "Reported Posts",
+              "Channels",
+              "Analytics",
+            ].map((t) => (
+              <button
+                className={tab === t ? "active" : ""}
+                onClick={() => setTab(t)}
+                key={t}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+          {tab === "Analytics" ? (
+            <Analytics />
+          ) : (
+            <div className="admin-table">
+              {adminPosts.map((p, i) => (
+                <div className="admin-row" key={p.id}>
+                  <span className="row-number">0{i + 1}</span>
+                  <div>
+                    <b>{p.title}</b>
+                    <span>
+                      {p.author} · {p.category} · contact private
+                    </span>
+                  </div>
+                  <span
+                    className={`status ${i > 4 ? "reported" : i === 4 ? "pending" : "approved"}`}
+                  >
+                    {i > 4 ? "Reported" : i === 4 ? "Pending" : "Approved"}
+                  </span>
+                  <button className="review-button">
+                    {tab === "Pending" ? "Approve" : "Review"} →
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
+}
+export function Stub({ title, intro }: { title: string; intro: string }) {
+  return (
+    <>
+      <Header />
+      <main className="page">
+        <div className="container narrow">
+          <span className="eyebrow">CAMPUSCONNECT ZW</span>
+          <h1>{title}</h1>
+          <p className="large-copy">{intro}</p>
+          <Link href="/" className="button primary">
+            Back to explore <span>→</span>
+          </Link>
+        </div>
+      </main>
+      <Footer />
+    </>
+  );
+}

@@ -21,7 +21,7 @@ export default function RootLayout({
     <html lang="en" className="bg-background">
       <body className={`${sans.variable} ${serif.variable}`}>
         {children}
-        {process.env.NODE_ENV === "production" && <Analytics />}
+        <Analytics />
       </body>
     </html>
   );

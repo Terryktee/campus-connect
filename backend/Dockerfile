@@ -24,8 +24,11 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheels -r requirements.t
 
 COPY entrypoint.sh /usr/local/bin/campusloop-entrypoint
 RUN chmod +x /usr/local/bin/campusloop-entrypoint
+
 COPY . .
 
 EXPOSE 8000
+
 ENTRYPOINT ["campusloop-entrypoint"]
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+CMD ["sh", "-c", "gunicorn campusloop.wsgi:application --bind 0.0.0.0:${PORT:-8000} --access-logfile -"]

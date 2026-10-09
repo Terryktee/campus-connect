@@ -38,7 +38,7 @@ If a tool is missing (for example `ruff`), add it to the dev requirements rather
 
 ## Task 0: Hygiene (do this first, tag [S])
 
-- [ ] **00 Hygiene.** Add a proper root `.gitignore` (Python caches, `__pycache__`, `*.pyc`, `celerybeat-schedule`, `.env*` except examples, `node_modules`, `.next`). Run `git rm -r --cached` on tracked `__pycache__` and `backend/celerybeat-schedule`. Make sure no real secrets exist in tracked files, and list any in `docs/NEEDS-HUMAN.md` for rotation. Commit.
+- [x] **00 Hygiene.** Add a proper root `.gitignore` (Python caches, `__pycache__`, `*.pyc`, `celerybeat-schedule`, `.env*` except examples, `node_modules`, `.next`). Run `git rm -r --cached` on tracked `__pycache__` and `backend/celerybeat-schedule`. Make sure no real secrets exist in tracked files, and list any in `docs/NEEDS-HUMAN.md` for rotation. Commit.
 
 ## Queue (order matters; do not reorder)
 

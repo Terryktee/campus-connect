@@ -12,6 +12,7 @@ Put this file at `docs/TASKS.md`. The agent reads it, works through the unchecke
    - `[S]` = Claude Sonnet 4.6
    - `[O]` = Claude Opus 4.6
    - `[G]` = GPT-OSS
+   - `[F]` = Gemini 3.8 Flash 
    If the first unchecked task is tagged for a different model, **stop** and write one line in `docs/RUN-LOG.md`: `Next task is NN, needs [X] model.` Do not skip ahead.
 4. For each task: implement it fully using the matching prompt in `docs/LOOP_PLAN.md` section 10 (the prompt text is the spec), add tests, run the checks below, fix failures, then make one commit: `loop(NN): <task name>`.
 5. After the commit: tick the box here, append a dated entry to `docs/RUN-LOG.md` (what changed, assumptions, follow-up risks), then continue to the next matching task without waiting for me.
@@ -42,19 +43,19 @@ If a tool is missing (for example `ruff`), add it to the dev requirements rather
 
 ## Queue (order matters; do not reorder)
 
-- [ ] **01 [S] Audit and rename.** Prompt 1. Rename to Loop in user-facing names, replace ZW-only assumptions with a configurable country/community model, write `docs/AUDIT.md`, rewrite root `README.md`.
-- [ ] **12 [S] CI/CD.** Prompt 12 adapted to the real paths above (`backend/`, `frontend/`, Railway services web/worker/beat, Vercel root `frontend`). Add `docs/DEPLOY.md`.
+- [x] **01 [F] Audit and rename.** Prompt 1. Rename to Loop in user-facing names, replace ZW-only assumptions with a configurable country/community model, write `docs/AUDIT.md`, rewrite root `README.md`.
+- [x] **12 [F] CI/CD.** Prompt 12 adapted to the real paths above (`backend/`, `frontend/`, Railway services web/worker/beat, Vercel root `frontend`). Add `docs/DEPLOY.md`.
 - [ ] **02 [O] Account-less identity.** Prompt 2. Includes recovery phrase, device transfer, `.loopkey` backup, device list, abuse controls, admin TOTP, `docs/IDENTITY.md`.
 - [ ] **03 [S] Images and audio.** Prompt 3.
 - [ ] **04 [S] Reactions, comments, snapshots.** Prompt 4.
 - [ ] **05 [S] Per-post analytics (public + admin).** Prompt 5.
 - [ ] **06 [O] Pulse, Aura, Ama2K Fame Status, Loop Points rewards.** Prompt 6. Use `docs/LOOP_PLAN.md` sections 2.1 to 2.4 directly.
 - [ ] **07 [S] Marketplace.** Prompt 7.
-- [ ] **08 [S] News.** Prompt 8.
+- [ ] **08 [F] News.** Prompt 8.
 - [ ] **09 [S] Admin panel redo (UI/UX).** Prompt 9. Replace the monolithic `admin-dashboard.tsx` with routed pages and small components.
-- [ ] **10 [S] Brand and design system.** Prompt 10. Wordmark SVGs go in `frontend/public/brand/`.
-- [ ] **11 [S] SEO and performance.** Prompt 11. Extend the existing `robots.ts` and `sitemap.ts`.
-- [ ] **13 [S] Global search and moderation completeness.** Prompt 13.
+- [ ] **10 [F] Brand and design system.** Prompt 10. Wordmark SVGs go in `frontend/public/brand/`.
+- [ ] **11 [F] SEO and performance.** Prompt 11. Extend the existing `robots.ts` and `sitemap.ts`.
+- [ ] **13 [F] Global search and moderation completeness.** Prompt 13.
 - [ ] **14 [O] Open-source readiness and secrets review.** Prompt 14. Docs may be drafted with `[G]`, but the secrets review and the final checklist are `[O]`.
 
 ## Definition of done for the whole build

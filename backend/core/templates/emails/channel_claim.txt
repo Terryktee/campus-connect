@@ -1,6 +1,6 @@
 Hello,
 
-The Campus Loop channel "{{ channel_name }}" is ready to be claimed. Open the
+The Loop channel "{{ channel_name }}" is ready to be claimed. Open the
 following link to continue:
 
 {{ claim_link }}

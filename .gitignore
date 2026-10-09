@@ -49,6 +49,7 @@ node_modules/
 .turbo/
 out/
 .vercel/
+*.tsbuildinfo
 
 # ── Environment variables ─────────────────────────────────────────────────────
 .env

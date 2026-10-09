@@ -8,8 +8,8 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from .models import (
-    Channel,
     Category,
+    Channel,
     Institution,
     ModerationAction,
     OrientationGuide,
@@ -63,10 +63,11 @@ def validate_submitter_contact(value):
     except ValidationError:
         pass
 
-    if re.fullmatch(r"(?:\+263|00263|263|0)7\d{8}", normalized.replace(" ", "").replace("-", "")):
+    cleaned_phone = normalized.replace(" ", "").replace("-", "")
+    if re.fullmatch(r"\+?[0-9]{7,15}", cleaned_phone):
         return normalized
     raise serializers.ValidationError(
-        "Enter a valid email address or Zimbabwean phone number."
+        "Enter a valid email address or phone number."
     )
 
 

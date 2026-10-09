@@ -3,7 +3,6 @@ from django.utils.text import slugify
 
 from core.models import Category, Institution
 
-
 INSTITUTIONS = (
     ("University of Zimbabwe", "UZ", "Harare"),
     ("National University of Science and Technology", "NUST", "Bulawayo"),
@@ -12,6 +11,9 @@ INSTITUTIONS = (
     ("Chinhoyi University of Technology", "CUT", "Chinhoyi"),
     ("Harare Institute of Technology", "HIT", "Harare"),
     ("Africa University", "AU", "Mutare"),
+    ("University of Cape Town", "UCT", "Cape Town"),
+    ("University of Nairobi", "UON", "Nairobi"),
+    ("Ashesi University", "ASHESI", "Berekuso"),
 )
 CATEGORIES = (
     "University News",

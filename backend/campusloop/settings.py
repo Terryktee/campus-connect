@@ -78,7 +78,7 @@ DATABASES = {
 }
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "Africa/Harare"
+TIME_ZONE = env("DJANGO_TIME_ZONE", default="Africa/Harare")
 USE_I18N = True
 USE_TZ = True
 STATIC_URL = "static/"
@@ -106,7 +106,7 @@ CELERY_BEAT_SCHEDULE = {
 EMAIL_BACKEND = env(
     "EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend"
 )
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@campusloop.local")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@loop.example")
 EMAIL_HOST = env("EMAIL_HOST", default="localhost")
 EMAIL_PORT = env.int("EMAIL_PORT", default=25)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")

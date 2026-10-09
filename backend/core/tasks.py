@@ -23,7 +23,7 @@ def _send_template_email(subject, template, recipient, context):
 @shared_task
 def send_admin_invite_email(recipient, invite_link, recipient_name=""):
     _send_template_email(
-        "Campus Loop admin invitation",
+        "Loop admin invitation",
         "emails/admin_invite.txt",
         recipient,
         {"invite_link": invite_link, "recipient_name": recipient_name},
@@ -33,7 +33,7 @@ def send_admin_invite_email(recipient, invite_link, recipient_name=""):
 @shared_task
 def send_channel_claim_email(recipient, channel_name, claim_link):
     _send_template_email(
-        "Claim your Campus Loop channel",
+        "Claim your Loop channel",
         "emails/channel_claim.txt",
         recipient,
         {"channel_name": channel_name, "claim_link": claim_link},
@@ -43,7 +43,7 @@ def send_channel_claim_email(recipient, channel_name, claim_link):
 @shared_task
 def send_post_notification_email(recipient, post_id, title, content):
     _send_template_email(
-        "New Campus Loop post",
+        "New Loop post",
         "emails/post_notification.txt",
         recipient,
         {"post_id": post_id, "title": title, "content": content},
@@ -84,9 +84,9 @@ def process_notification_queue(now=None):
                 else "emails/notification_digest.txt"
             )
             subject = (
-                "New Campus Loop post"
+                "New Loop post"
                 if len(batch) == 1
-                else f"{len(batch)} new Campus Loop posts"
+                else f"{len(batch)} new Loop posts"
             )
             context = (
                 {

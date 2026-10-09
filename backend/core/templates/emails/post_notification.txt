@@ -1,4 +1,4 @@
-A new Campus Loop post is available.
+A new Loop post is available.
 
 {{ title }}
 

@@ -1,6 +1,5 @@
 from .settings import *  # noqa: F403
 
-
 DEBUG = False
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")

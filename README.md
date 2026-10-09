@@ -1,30 +1,30 @@
-# Campus Loop ZW
+# Loop
 
-Campus Loop ZW is a moderated student platform for Zimbabwean institutions.
+> **Loop** is an open-source, no-account social platform for youth worldwide.  
+> *Formerly Campus Loop ZW. A platform for every voice.*
 
-## Local Development
+---
 
-Docker Compose runs the complete local stack: MySQL, Redis, Django, Celery
-worker, Celery beat, and Next.js.
+**Status:** Active development — Task 00 (Hygiene) complete, see `docs/RUN-LOG.md` for the build log.
 
-1. Copy the example environment file and replace its placeholder values:
+This README will be rewritten by Task 01 (Audit and rename).
 
-   ```bash
-   cp .env.example .env
-   ```
+## Quick start
 
-2. Start the stack:
+```bash
+cp .env.example .env
+# fill in values, then:
+docker compose up
+```
 
-   ```bash
-   docker compose up
-   ```
+See `docs/DEPLOY.md` (created by Task 12) for Railway + Vercel deployment.
 
-   The backend container applies migrations and seeds initial data before
-   starting Django. The frontend is available at
-   [http://localhost:3000](http://localhost:3000), and the backend API is
-   available at [http://localhost:8000](http://localhost:8000).
+## Docs
 
-The browser uses `http://localhost:8000` for API requests. Containers use
-the Compose service names `mysql` and `redis` for internal connections, so
-those values must not be replaced with `localhost` in container
-configuration.
+| File | Purpose |
+|---|---|
+| `docs/LOOP_PLAN.md` | Master spec and algorithm definitions |
+| `docs/TASKS.md` | Autonomous work queue |
+| `docs/RUN-LOG.md` | Build log — what changed, when |
+| `docs/NEEDS-HUMAN.md` | Things only a human can set up |
+| `AGENTS.md` | Standing rules for the AI agents |

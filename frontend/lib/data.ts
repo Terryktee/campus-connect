@@ -40,6 +40,9 @@ export const institutions = [
   "Harare Institute of Technology",
   "Catholic University of Zimbabwe",
   "Africa University",
+  "University of Cape Town",
+  "University of Nairobi",
+  "Ashesi University",
 ];
 export const categories = [
   "All posts",

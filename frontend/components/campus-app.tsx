@@ -55,10 +55,8 @@ export function Header() {
     <header className="site-header">
       <div className="container nav">
         <Link href="/" className="brand">
-          <span className="brand-mark">C</span>
-          <span>
-            CampusConnect <em>ZW</em>
-          </span>
+          <span className="brand-mark">L</span>
+          <span>Loop</span>
         </Link>
         <nav className={open ? "nav-links open" : "nav-links"}>
           <Link href="/">Explore</Link>
@@ -102,13 +100,11 @@ export function Footer() {
       <div className="container footer-grid">
         <div>
           <Link href="/" className="brand">
-            <span className="brand-mark">C</span>
-            <span>
-              CampusConnect <em>ZW</em>
-            </span>
+            <span className="brand-mark">L</span>
+            <span>Loop</span>
           </Link>
           <p className="muted footer-copy">
-            The student noticeboard for Zimbabwe.
+            The open platform for youth worldwide.
             <br />
             Find your people. Share what matters.
           </p>
@@ -125,8 +121,8 @@ export function Footer() {
         ))}
       </div>
       <div className="container footer-bottom">
-        <span>© 2026 CampusConnect ZW</span>
-        <span>Made for students, by students.</span>
+        <span>© 2026 Loop</span>
+        <span>Made for youth, by youth.</span>
       </div>
     </footer>
   );
@@ -184,9 +180,8 @@ export function Home() {
                 <i>on campus?</i>
               </h1>
               <p className="hero-copy">
-                University news, opportunities, and tech for Zimbabwean
-                students. Find your people, share what matters and make campus
-                life a little easier.
+                Community news, opportunities, and voices for youth worldwide.
+                Find your people, share what matters, and make your voice heard.
               </p>
               <div className="hero-actions">
                 <Link href="/submit" className="button primary">
@@ -421,7 +416,7 @@ export function Submit() {
                     Channel name (optional)
                     <input
                       name="channel_name"
-                      placeholder="e.g. Women in STEM Zimbabwe"
+                      placeholder="e.g. Women in STEM"
                       {...fieldProps("channel_name")}
                     />
                     {fieldError("channel_name") && (
@@ -1038,7 +1033,7 @@ export function Login({ admin = false }: { admin?: boolean }) {
           <span className="eyebrow">
             {admin ? "STAFF ONLY" : "WELCOME BACK"}
           </span>
-          <h1>{admin ? "Moderation desk" : "Log in to CampusConnect"}</h1>
+          <h1>{admin ? "Moderation desk" : "Log in to Loop"}</h1>
           <p>Use your username and password to log in.</p>
           <form onSubmit={submit}>
             <label>

@@ -1,4 +1,4 @@
-New Campus Loop posts
+New Loop posts
 
 {% for notification in notifications %}{{ notification.title }}
 

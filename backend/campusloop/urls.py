@@ -3,21 +3,26 @@ from django.db import connection
 from django.db.utils import OperationalError
 from django.http import JsonResponse
 from django.urls import path
+
 from core.views import (
-    AdminInviteView,
-    AdminMeView,
-    AdminTokenObtainPairView,
-    AdminTokenRefreshView,
-    AdminModerationActionListView,
     AdminApprovePostView,
     AdminChannelActionView,
-    AdminFeaturePostView,
     AdminFailedNotificationListView,
+    AdminFeaturePostView,
+    AdminInviteView,
+    AdminMeView,
+    AdminModerationActionListView,
+    AdminOrientationGuideDetailView,
+    AdminOrientationGuideListView,
     AdminPostListView,
     AdminRejectPostView,
     AdminReportActionView,
     AdminReportListView,
+    AdminSponsoredListingDetailView,
+    AdminSponsoredListingListView,
     AdminTakeDownPostView,
+    AdminTokenObtainPairView,
+    AdminTokenRefreshView,
     AdminUnfeaturePostView,
     PublicCategoryListView,
     PublicChannelClaimView,
@@ -30,10 +35,6 @@ from core.views import (
     PublicPostListView,
     PublicPostReportView,
     PublicSubmissionView,
-    AdminOrientationGuideDetailView,
-    AdminOrientationGuideListView,
-    AdminSponsoredListingListView,
-    AdminSponsoredListingDetailView,
     SponsorListingAnalyticsView,
 )
 

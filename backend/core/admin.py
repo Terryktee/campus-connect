@@ -3,6 +3,8 @@ from django.db import models
 
 from .models import (
     Admin as AdminProfile,
+)
+from .models import (
     AllowlistedDomain,
     BlocklistKeyword,
     Category,

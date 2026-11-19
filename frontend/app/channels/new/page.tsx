@@ -35,7 +35,7 @@ export default function Page() {
             >
               <label>
                 Channel name *
-                <input required placeholder="e.g. Women in STEM Zimbabwe" />
+                <input required placeholder="e.g. Women in STEM" />
               </label>
               <label>
                 Short code *

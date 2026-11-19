@@ -76,7 +76,7 @@ class CeleryEmailTests(APITestCase):
         process_notification_queue()
 
         self.assertEqual(send_mail.call_count, 1)
-        self.assertIn("2 new Campus Loop posts", send_mail.call_args.args[0])
+        self.assertIn("2 new Loop posts", send_mail.call_args.args[0])
         self.assertEqual(
             NotificationQueue.objects.filter(status=NotificationQueue.Status.SENT).count(), 2
         )

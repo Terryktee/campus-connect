@@ -5,10 +5,10 @@ import "./globals.css";
 const sans = DM_Sans({ subsets: ["latin"], variable: "--font-dm-sans" });
 const serif = Lora({ subsets: ["latin"], variable: "--font-lora" });
 export const metadata: Metadata = {
-  title: "CampusConnect ZW — What’s happening on campus?",
+  title: "Loop — What’s happening?",
   description:
-    "The student noticeboard for Zimbabwe. Find your people, share what matters and make campus life a little easier.",
-  generator: "v0.app",
+    "An open, no-account social platform for youth worldwide. Find your community, share what matters, and loop in.",
+  generator: "Loop",
 };
 export const viewport: Viewport = {
   colorScheme: "light",
